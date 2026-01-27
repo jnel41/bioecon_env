@@ -1,0 +1,333 @@
+---
+title: "Supplyshed Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+library("lme4")
+library("lmerTest")
+library("emmeans")
+library("ggResidpanel")
+
+options(scipen = 999, width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+
+```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
+## Generate dataframe
+## crop acres = all cropped acres within the drainage area of the practice.
+CBS_NO3raw <- read_csv("../code/CBS_practiceSummary_NO3.csv") %>%
+  mutate(practice = "CBS",
+         pID = FBndID,
+         IWAP = 2,
+         INRS = "Perennial crops",
+         biomass = "prairie",
+         adjOCost = OpportunityCost,
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
+         cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
+         DC_kgNO3 = DirectCost / cpNO3ldRedkg,
+         TC_kgNO3 = TotalCost / cpNO3ldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpNO3ldkg,
+         cpNO3ldRedkg,DC_kgNO3,TC_kgNO3)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+NRW_NO3raw <- read_csv("../code/NRW_practiceSummary_NO3.csv") %>%
+  mutate(practice = "NRW",
+         pID = SiteID,
+         IWAP = 0,
+         INRS = "Treatment wetlands",
+         biomass = "prairie",
+         adjOCost = OpportunityCost,
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
+         cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
+         DC_kgNO3 = DirectCost / cpNO3ldRedkg,
+         TC_kgNO3 = TotalCost / cpNO3ldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpNO3ldkg,
+         cpNO3ldRedkg,DC_kgNO3,TC_kgNO3)
+
+## crop acres = field acres
+PCP_NO3raw <- read_csv("../code/CCP_practiceSummary_SED.csv") %>%
+  mutate(practice = "PCP",
+         pID = FBndID,
+         biomass = "prairie",
+         IWAP = "1",
+         INRS = "Perennial crops",
+         adjOCost = OpportunityCost,
+         opArea_ha = opAcres*0.404686, # convert ac to ha
+         cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         cpNO3ldkg = cpNO3load*0.453592, ## convert lb to kg
+         cpNO3ldRedkg = cpNO3LoadReduced*0.453592, ## convert lb to kg
+         DC_kgNO3 = DirectCost / cpNO3ldRedkg,
+         TC_kgNO3 = TotalCost / cpNO3ldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpNO3ldkg,
+         cpNO3ldRedkg,DC_kgNO3,TC_kgNO3)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+STB_NO3raw <- read_csv("../code/STB_practiceSummary_NO3.csv") %>%
+  mutate(practice = "STB",
+         pID = riparianid,
+         IWAP = 2,
+         INRS = "Riparian buffers",
+         biomass = "prairie",
+         adjOCost = adjOCosts,
+         TotalCost = adjOCost + DirectCost,
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
+         cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
+         DC_kgNO3 = DirectCost / cpNO3ldRedkg,
+         TC_kgNO3 = TotalCost / cpNO3ldRedkg)%>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpNO3ldkg,
+         cpNO3ldRedkg,DC_kgNO3,TC_kgNO3)
+
+## crop acres = field acres
+WCR_NO3raw <- read_csv("../code/CCR_practiceSummary_NO3.csv") %>%
+  mutate(practice = "WCR",
+         pID = FBndID,
+         IWAP = 0,
+         INRS = "Rye cover crops",
+         biomass = "rye",
+         adjOCost = OpportunityCost,
+         TotalCost = DirectCost,
+         opArea_ha = opAcres*0.404686, # convert ac to ha
+         cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         cpNO3ldkg = cpNO3load*0.453592, ## convert lb to kg
+         cpNO3ldRedkg = cpNO3LoadReduced*0.453592, ## convert lb to kg
+         DC_kgNO3 = DirectCost / cpNO3ldRedkg,
+         TC_kgNO3 = TotalCost / cpNO3ldRedkg) %>%
+  select(MLRA,HUC12,pID,practice,FBndID,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpNO3ldkg,
+         cpNO3ldRedkg,DC_kgNO3,TC_kgNO3)
+
+practSumNO3_df <- rbind(CBS_NO3raw, NRW_NO3raw, PCP_NO3raw, STB_NO3raw, WCR_NO3raw)
+practSumNO3 <- within(practSumNO3_df, MLRA[MLRA == 108] <- "108c")
+practSumNO3 <- within(practSumNO3, MLRA[MLRA == 115] <- "115c")
+
+## field loads to estimate load by MLRA.
+fbMgmt<- read_csv("../code/fbNO3Load.csv") %>%
+  mutate(NO3load_kgha = NO3loadAc*0.892179, # convert lb per ac to kg per ha
+         Nrate_kgha = Nrate*0.892179, # convert lb per ac to kg per ha
+         hectares = Acres * 0.404686) %>% # convert ac per ha
+  select(MLRA,FBndID,isAG,hectares,inSup,GenLU,CropRotatn,Nrate_kgha,NO3load_kgha)
+
+fbSieversRoute <-  read_csv("../code/fbSieversRoutes.csv") %>%
+  mutate(FBndID = trimws(sub("^([^-]+)-.*$", "\\1", Name),which="right")) %>%
+  select(FBndID,Total_TruckTravelTime,Total_Kilometers)
+
+## Dataframe check
+#head(practSum)
+#head(wsLoad)
+summary(practSumNO3)
+#summary(wsLoad)
+
+```
+
+```{r explore_df, dependson="create_df"}
+practMLRANO3_counts <- practSumNO3 %>%
+         group_by(MLRA, INRS) %>%
+         summarize(opArea_ha = sum(opArea_ha), 
+                   n = n(), .groups = "drop")
+
+bioMLRANO3_counts <- practSumNO3 %>%
+         group_by(MLRA, biomass) %>%
+         summarize(opArea_ha = sum(opArea_ha), 
+                   n = n(), .groups = "drop")
+
+practHUC12NO3_counts <- practSumNO3 %>%
+         group_by(HUC12, practice) %>%
+         summarize(opArea_ha = sum(opArea_ha),
+                   n = n(), .groups = "drop")
+
+bioHUC12NO3_counts <- practSumNO3 %>%
+         group_by(HUC12, biomass) %>%
+         summarize(opArea_ha = sum(opArea_ha),
+                   n = n(), .groups = "drop")
+
+IWAPHUC12NO3_counts <- practSumNO3 %>%
+  filter(IWAP >0) %>%
+  group_by(HUC12,IWAP) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+          n = n(), .groups = "drop")
+         
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
+practMLRA_CostSumNO3 <- practSumNO3 %>% drop_na(cpNO3ldkg) %>%
+  group_by(MLRA, INRS) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            meanDC_kgNO3  = mean(DC_kgNO3, na.rm = TRUE),
+            minDC_kgNO3 = min(DC_kgNO3, na.rm = TRUE),
+            maxDC_kgNO3 = max(DC_kgNO3, na.rm = TRUE),
+            meanTC_kgNO3 = mean(TC_kgNO3, na.rm = TRUE),
+            minTC_kgNO3 = min(TC_kgNO3, na.rm = TRUE),
+            maxTC_kgNO3 = max(TC_kgNO3, na.rm = TRUE),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practMLRA_CostSumNO3,"practMLRA_CostSumNO3.csv")
+
+## Which HUC12 should we start with?
+practHUC12_CostSumNO3 <- practSumNO3 %>% drop_na(cpNO3ldkg) %>%
+  group_by(HUC12) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            #sumCO2red = sum(CO2red),
+            #sumN2ored = sum(N2Ored),
+            sumcpNO3LoadReduced = sum(cpNO3ldRedkg, na.rm = TRUE),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            meanDC_kgNO3  = mean(DC_kgNO3, na.rm = TRUE),
+            minDC_kgNO3 = min(DC_kgNO3, na.rm = TRUE),
+            maxDC_kgNO3 = max(DC_kgNO3, na.rm = TRUE),
+            meanTC_kgNO3 = mean(TC_kgNO3, na.rm = TRUE),
+            minTC_kgNO3 = min(TC_kgNO3, na.rm = TRUE),
+            maxTC_kgNO3 = max(TC_kgNO3, na.rm = TRUE),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practHUC12_CostSumNO3,"practHUC12_CostSumNO3.csv")
+
+# How much will it cost to achieve IWAP?
+practIWAP_CostSumNO3 <- practSumNO3 %>% filter(IWAP == 1) %>%
+  group_by(MLRA) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practIWAP_CostSumNO3,"practIWAP_CostSumNO3.csv")
+
+```
+
+```{r explore_df, dependson="create_df"}
+ggplot(data, aes(x=name, y=value)) + 
+  geom_bar(stat = "identity")
+
+```
+
+Look at bioyield and transportation costs
+```{r mean_data, dependson = "create_soilpad"}
+## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
+bio_CostSumNO3 <- practSumNO3 %>% drop_na(cpNO3ldkg) %>%
+  group_by(FBndID, biomass) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+            n       = n(),
+            #sumbioYield = sum(bioYield),
+            #sumEnergyPot = sum(energyPot),
+            sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC_kgNO3  = mean(DC_kgNO3, na.rm = TRUE),
+            minDC_kgNO3 = min(DC_kgNO3, na.rm = TRUE),
+            maxDC_kgNO3 = max(DC_kgNO3, na.rm = TRUE),
+            meanTC_kgNO3 = mean(TC_kgNO3, na.rm = TRUE),
+            minTC_kgNO3 = min(TC_kgNO3, na.rm = TRUE),
+            maxTC_kgNO3 = max(TC_kgNO3, na.rm = TRUE),
+            .groups = "drop")
+
+envOutcomeNO3_CostSum <- practSumNO3 %>%
+  group_by(FBndID) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+            n       = n(),
+            MLRA = max(MLRA),
+            HUC12 = max(HUC12),
+            sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            sumcpNO3ldRedkg = sum(cpNO3ldRedkg, na.rm = TRUE),
+            minNO3Red = min(cpNO3ldRedkg, na.rm=TRUE),
+            maxNO3Red = max(cpNO3ldRedkg, na.rm=TRUE),
+            IWAP = max(IWAP),
+            sumDCredNO3  = sum(DC_kgNO3, na.rm = TRUE),
+            minDCredNO3 = min(DC_kgNO3, na.rm = TRUE),
+            maxDCredNO3 = max(DC_kgNO3, na.rm = TRUE),
+            sumTCredNO3 = sum(DC_kgNO3, na.rm = TRUE),
+            minTCredNO3 = min(DC_kgNO3, na.rm = TRUE),
+            maxTCredNO3 = max(DC_kgNO3, na.rm = TRUE))
+
+travel_envOutcomesNO3 <- full_join(envOutcomeNO3_CostSum, fbSieversRoute)
+
+travel_NO3Sum <- travel_envOutcomesNO3 %>%
+  group_by(HUC12) %>%
+  summarize(sum_hectares = sum(opArea_ha),
+            mean_time = mean(Total_TruckTravelTime),
+            mean_dist = mean(Total_Kilometers))
+
+write_csv(travel_NO3Sum,"bioHUC12_NO3.csv")
+
+## QA/QC for transportation routes to ensure number of routes and locations match
+## use spatial join to add FBndID to STB and NRW
+# travelNA <- routes %>% filter(is.na(Total_TruckTravelTime))
+# removeRoute <- bio_travelNO3 %>% filter(is.na(IWAP))
+# routes <- bio_travelNO3 %>% drop_na(IWAP)
+# write_csv(routes,"finalRoutes.csv")
+# write_csv(travelNA, "missingRoutes.csv")
+
+practIWAP_Sum <- practSumNO3 %>%
+  filter(IWAP == 1) %>%
+  group_by(HUC12) %>%
+  summarize(n       = n(),
+            opArea_ha = sum(opArea_ha),
+            mean_ha = mean(opArea_ha),
+            sd = sd(opArea_ha),
+            se=(sd/sqrt(n)),
+            min_ha = min(opArea_ha),
+            max_ha = max(opArea_ha),
+            .groups = "drop")
+
+```

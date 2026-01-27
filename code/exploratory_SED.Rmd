@@ -1,0 +1,408 @@
+---
+title: "Supplyshed SED Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+library("lme4")
+library("lmerTest")
+library("emmeans")
+library("ggResidpanel")
+
+options(scipen = 999, width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+
+```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
+## Generate dataframe
+## crop acres = all cropped acres within the drainage area of the practice.
+CBS_SEDraw <- read_csv("../code/CBS_practiceSummary_SED.csv") %>%
+  mutate(practice = "CBS",
+         pID = FBndID,
+         IWAP = 2,
+         INRS = "Perennial crops",
+         biomass = "prairie",
+         adjOCost = OpportunityCost,
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         cpSEDldkg = SUM_cpSEDload*907.18, ## convert US tons to kg
+         cpSEDldRedkg = SUM_cpSEDLoadReduced*907.18, ## convert US tons to kg
+         DC_kgSED = DirectCost / cpSEDldRedkg,
+         TC_kgSED = TotalCost / cpSEDldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpSEDldkg,
+         cpSEDldRedkg,DC_kgSED,TC_kgSED)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+NRW_SEDraw <- read_csv("../code/NRW_practiceSummary_SED.csv") %>%
+  mutate(practice = "NRW",
+         pID = SiteID,
+         IWAP = 0,
+         INRS = "Treatment wetlands",
+         biomass = "prairie",
+         adjOCost = OpportunityCost,
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         cpSEDldkg = SUM_cpSEDload*907.18, ## convert US tons to kg
+         cpSEDldRedkg = SUM_cpSEDLoadReduced*907.18, ## convert US tons to kg
+         DC_kgSED = DirectCost / cpSEDldRedkg,
+         TC_kgSED = TotalCost / cpSEDldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpSEDldkg,cpSEDldRedkg,
+         DC_kgSED,TC_kgSED)
+
+## crop acres = field acres
+PCP_SEDraw <- read_csv("../code/CCP_practiceSummary_SED.csv") %>%
+  mutate(practice = "PCP",
+         pID = FBndID,
+         biomass = "prairie",
+         IWAP = "1",
+         INRS = "Perennial crops",
+         opArea_ha = opAcres*0.404686, # convert ac to ha
+         cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         adjOCost = OpportunityCost,
+         cpSEDldkg = cpSEDload*907.18, ## convert US tons to kg
+         cpSEDldRedkg = cpSEDLoadReduced*907.18, ## convert US tons to kg
+         DC_kgSED = DirectCost / cpSEDldRedkg,
+         TC_kgSED = TotalCost / cpSEDldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpSEDldkg,
+         cpSEDldRedkg,DC_kgSED,TC_kgSED)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+STB_SEDraw <- read_csv("../code/STB_practiceSummary_SED.csv") %>%
+  mutate(practice = "STB",
+         pID = riparianid,
+         IWAP = 2,
+         INRS = "Riparian buffers",
+         biomass = "prairie",
+         opArea_ha = opAcres*0.404686, ## convert ac to ha
+         cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         adjOCost = adjOCosts,
+         TotalCost = adjOCosts + DirectCost,
+         cpSEDldkg = SUM_cpSEDload*907.18, ## convert US tons to kg
+         cpSEDldRedkg = SUM_cpSEDLoadReduced*907.18, ## convert US tons to kg
+         DC_kgSED = DirectCost / cpSEDldRedkg,
+         TC_kgSED = TotalCost / cpSEDldRedkg) %>%
+  select(MLRA,HUC12,FBndID,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpSEDldkg,
+         cpSEDldRedkg,DC_kgSED,TC_kgSED)
+
+## crop acres = field acres
+WCR_SEDraw <- read_csv("../code/CCR_practiceSummary_SED.csv") %>%
+  mutate(practice = "WCR",
+         pID = FBndID,
+         IWAP = 0,
+         INRS = "Rye cover crops",
+         biomass = "rye",
+         opArea_ha = opAcres*0.404686, # convert ac to ha
+         cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         adjOCost = OpportunityCost,
+         TotalCost = DirectCost,
+         cpSEDldkg = cpSEDload*907.18, ## convert US tons to kg
+         cpSEDldRedkg = cpSEDLoadReduced*907.18, ## convert US tons to kg
+         DC_kgSED = DirectCost / cpSEDldRedkg,
+         TC_kgSED = TotalCost / cpSEDldRedkg) %>%
+  select(MLRA,HUC12,pID,practice,FBndID,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,
+         OpportunityCost,adjOCost,TotalCost,biomass,cpSEDldkg,
+         cpSEDldRedkg,DC_kgSED,TC_kgSED)
+
+practSumSED_df <- rbind(CBS_SEDraw, NRW_SEDraw, PCP_SEDraw, STB_SEDraw, WCR_SEDraw)
+practSumSED <- within(practSumSED_df, MLRA[MLRA == 108] <- "108c")
+practSumSED <- within(practSumSED, MLRA[MLRA == 115] <- "115c")
+
+## field loads to estimate load by MLRA.
+#fbMgmt<- read_csv("../code/fbNO3Load.csv") %>%
+#  select(MLRA,FBndID,isAG,Acres,inSup,GenLU,CropRotatn,Nrate,NO3loadAc)
+
+fbSieversRoute <-  read_csv("../code/fbSieversRoutes.csv") %>%
+  mutate(FBndID = trimws(sub("^([^-]+)-.*$", "\\1", Name),which="right")) %>%
+  select(FBndID,Total_TruckTravelTime,Total_Kilometers)
+
+
+## Dataframe check
+#head(practSum)
+#head(wsLoad)
+summary(practSumSED)
+unique(practSumBIO$MLRA)
+#summary(wsLoad)
+
+```
+
+```{r explore_df, dependson="create_df"}
+practMLRA_countsSED <- practSumSED %>%
+         group_by(MLRA,INRS) %>%
+         summarize(opArea_ha = sum(opArea_ha), 
+                   n = n(), .groups = "drop")
+
+bioMLRA_counts <- practSumSED %>%
+         group_by(MLRA, biomass) %>%
+         summarize(opArea_ha = sum(opArea_ha), 
+                   n = n(), .groups = "drop")
+
+practHUC12_counts <- practSumSED %>%
+         group_by(HUC12, practice) %>%
+         summarize(opArea_ha = sum(opArea_ha),
+                   n = n(), .groups = "drop")
+
+bioHUC12_counts <- practSumSED %>%
+         group_by(HUC12, biomass) %>%
+         summarize(opArea_ha = sum(opArea_ha),
+                   n = n(), .groups = "drop")
+
+IWAPHUC12_counts <- practSumSED %>%
+  filter(IWAP >0) %>%
+  group_by(HUC12,IWAP) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+          n = n(), .groups = "drop")
+         
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
+practMLRA_CostSumSED <- practSumSED %>% drop_na(cpSEDldkg) %>%
+  filter(cpSEDldRedkg >= 0) %>%
+  group_by(MLRA,INRS) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            meanDC_kgSED  = mean(DC_kgSED, na.rm = TRUE),
+            minDC_kgSED = min(DC_kgSED, na.rm = TRUE),
+            maxDC_kgSED = max(DC_kgSED, na.rm = TRUE),
+            meanTC_kgSED  = mean(TC_kgSED, na.rm = TRUE),
+            minTC_kgSED = min(TC_kgSED, na.rm = TRUE),
+            maxTC_kgSED = max(TC_kgSED, na.rm = TRUE),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practMLRA_CostSumSED,"practMLRA_CostSumSED.csv")
+
+
+practHUC12_CostSumSED <- practSumSED %>% drop_na(cpSEDldkg) %>%
+  filter(cpSEDldRedkg >= 0) %>%
+  group_by(HUC12) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            sumcpSEDLoadReduced = sum(cpSEDldRedkg, na.rm = TRUE),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            meanDCredSED  = mean(DC_kgSED, na.rm = TRUE),
+            minDCredSED = min(DC_kgSED, na.rm = TRUE),
+            maxDCredSED = max(DC_kgSED, na.rm = TRUE),
+            meanTCredSED  = mean(TC_kgSED, na.rm = TRUE),
+            minTCredSED = min(TC_kgSED, na.rm = TRUE),
+            maxTCredSED = max(TC_kgSED, na.rm = TRUE),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practHUC12_CostSumSED,"practHUC12_CostSumSED.csv")
+
+# How much will it cost to achieve IWAP?
+practIWAP_CostSumSED <- practSumSED %>% filter(IWAP == 1) %>%
+  filter(cpSEDldRedkg >= 0) %>%
+  group_by(MLRA) %>%
+  summarize(sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC  = round(mean(DirectCost, na.rm = TRUE),0),
+            minDC = round(min(DirectCost),0),
+            maxDC = round(max(DirectCost),0),
+            meanOC  = round(mean(adjOCost, na.rm = TRUE),0),
+            minOC = round(min(adjOCost),0),
+            maxOC = round(max(adjOCost),0),
+            meanTC  = round(mean(TotalCost, na.rm = TRUE),0),
+            minTC = round(min(TotalCost),0),
+            maxTC = round(max(TotalCost),0),
+            opArea_ha = sum(opArea_ha),
+            n       = n(),
+            .groups = "drop")
+
+write_csv(practIWAP_CostSumSED,"practIWAP_CostSumSED.csv")
+
+```
+
+```{r explore_df, dependson="create_df"}
+DC_kgconfintNO3 <- practSumBIO %>%
+  filter(cpSEDldRedkg >= 0) %>%
+  group_by(MLRA,INRS) %>%
+  reframe(mean = mean(DC_kgNO3, na.rm=TRUE),
+            median = median(DC_kgNO3, na.rm = TRUE),
+            n = length(DC_kgNO3),
+            sd = sd(DC_kgNO3, na.rm = TRUE),
+            se = sd / sqrt(n),
+            t.score = qt(p= 0.05/2, df = (n-1), lower.tail = F),
+            margErr = t.score*se,
+            lb = mean - margErr,
+            ub = mean + margErr)
+
+TC_kgconfintNO3 <- practSumBIO %>%
+  filter(cpSEDldRedkg >= 0) %>%
+  group_by(MLRA,INRS) %>%
+  reframe(mean = mean(TC_kgNO3, na.rm=TRUE),
+            median = median(TC_kgNO3, na.rm = TRUE),
+            n = length(TC_kgNO3),
+            sd = sd(TC_kgNO3, na.rm = TRUE),
+            se = sd / sqrt(n),
+            t.score = qt(p= 0.05/2, df = (n-1), lower.tail = F),
+            margErr = t.score*se,
+            lb = mean - margErr,
+            ub = mean + margErr)
+
+```
+
+
+
+Compare costs. It might be interesting to visually have a side-by-side comparison of direct, 
+total, and opportunity costs. 
+```{r explore_df, dependson="create_df"}
+#practSum_TCredSED <- filter(practSumSED, TCredSED < 1000)
+
+fbLoadSumStat <- fbLoad %>% 
+  filter(loadlbs > 0) %>%
+  group_by(MLRA, pollutant) %>%
+  summarise(n=n(),
+            sumLoadmt = sum(loadlbs)/2205, # convert lb to metric tonne
+            meankg = mean(loadlbs/2.2), # convert lb to kg
+            sdkg=sd(loadlbs/2.2),
+            sekg=(sdkg/sqrt(n)))
+
+ggplot(fbLoadSumStat, aes(MLRA, meankg, fill=pollutant)) +
+  geom_bar(stat = "identity",position=position_dodge()) +
+  geom_errorbar(aes(x=MLRA, ymin=meankg-sekg, ymax=meankg+sekg), width=0.4, 
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values=c("#999999", "#999123")) +
+  ggtitle("Mean Pollutant Load Per Field by MLRA (SE plotted)") +
+  xlab("MLRA") +
+  ylab("Pollutant Load (kg)")
+
+ggplot(fbLoadSumStat, aes(MLRA, (sumLoadmt), fill=pollutant)) +
+  geom_bar(stat = "identity",position=position_dodge()) +
+  scale_fill_manual(values=c("#999999", "#999123")) +
+  ggtitle("Total Pollutant Load Per Field by MLRA") +
+  xlab("MLRA") +
+  ylab("Pollutant Load (tonnes)")
+##make a graph comparing direct, opportunity, and total costs per practice
+
+```
+
+Look at bioyield and transportation costs
+```{r mean_data, dependson = "create_soilpad"}
+## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
+bio_CostSumSED <- practSumSED %>% drop_na(cpSEDldkg) %>%
+  group_by(FBndID, biomass) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+            n       = n(),
+            sumbioYield = sum(bioYield),
+            sumEnergyPot = sum(energyPot),
+            sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            meanDC_kgSED  = mean(DC_kgSED, na.rm = TRUE),
+            minDC_kgSED = min(DC_kgSED, na.rm = TRUE),
+            maxDC_kgSED = max(DC_kgSED, na.rm = TRUE),
+            meanTC_kgSED  = mean(TC_kgSED, na.rm = TRUE),
+            minTC_kgSED = min(TC_kgSED, na.rm = TRUE),
+            maxTC_kgSED = max(TC_kgSED, na.rm = TRUE),
+            .groups = "drop")
+
+envOutcome_CostSumSED <- practSumSED %>%
+  group_by(FBndID) %>%
+  summarize(opArea_ha = sum(opArea_ha),
+            n       = n(),
+            MLRA = max(MLRA),
+            HUC12 = max(HUC12),
+            sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            sumcpSEDLoadReduced = sum(cpSEDldRedkg, na.rm = TRUE),
+            minSEDRed = min(cpSEDldRedkg, na.rm = TRUE),
+            maxSEDRed = max(cpSEDldRedkg, na.rm=TRUE),
+            IWAP = max(IWAP),
+            sumDC_kgSED  = sum(DC_kgSED, na.rm = TRUE),
+            minDC_kgSED = min(DC_kgSED, na.rm = TRUE),
+            maxDC_kgSED = max(DC_kgSED, na.rm = TRUE),
+            sumTC_kgSED  = sum(TC_kgSED, na.rm = TRUE),
+            minTC_kgSED = min(TC_kgSED, na.rm = TRUE),
+            maxTC_kgSED = max(TC_kgSED, na.rm = TRUE))#,
+            #.groups = "drop")
+
+#travel_envOutcomesSED <- full_join(envOutcome_CostSumSED, fbSieversRoute)
+
+#travel_SumSED <- travel_envOutcomesSED %>%
+  group_by(HUC12) %>%
+  summarize(sum_hectares = sum(opArea_ha),
+            mean_time = mean(Total_TruckTravelTime),
+            mean_dist = mean(Total_Kilometers))
+
+#write_csv(travel_Sum,"bioHUC12.csv")
+
+## QA/QC for transportation routes to ensure number of routes and locations match
+## use spatial join to add FBndID to STB and NRW
+# travelNA <- routes %>% filter(is.na(Total_TruckTravelTime))
+# removeRoute <- bio_travelNO3 %>% filter(is.na(IWAP))
+# routes <- bio_travelNO3 %>% drop_na(IWAP)
+# write_csv(routes,"finalRoutes.csv")
+# write_csv(travelNA, "missingRoutes.csv")
+
+GHGsum <- practSumSed %>%
+  group_by(MLRA) %>%
+  summarize(opArea_ha= sum(opArea_ha),
+            n       = n(),
+            MLRA = max(MLRA),
+            sumCO2red = sum(CO2red),
+            sumN2ored = sum(N2Ored),
+            sumcpNO3ldRedkg = sum(cpNO3ldRedkg, na.rm = TRUE),
+            minNO3Red = min(cpNO3ldRedkg, na.rm=TRUE),
+            maxNO3Red = max(cpNO3ldRedkg, na.rm=TRUE),
+            sumcpSEDldRedkg = sum(cpSEDldRedkg, na.rm = TRUE),
+            minSEDRed = min(cpSEDldRedkg, na.rm = TRUE),
+            maxSEDRed = max(cpSEDldRedkg, na.rm=TRUE),
+            IWAP = max(IWAP),
+            .groups = "drop")
+
+practIWAP_Sum <- practSumSed %>%
+  filter(IWAP == 1) %>%
+  group_by(HUC12) %>%
+  summarize(n       = n(),
+            opArea_ha = sum(opArea_ha),
+            mean_ha = mean(opArea_ha),
+            sd = sd(opArea_ha),
+            se=(sd/sqrt(n)),
+            min_ha = min(opArea_ha),
+            max_ha = max(opArea_ha),
+            .groups = "drop")
+
+```

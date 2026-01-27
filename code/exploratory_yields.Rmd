@@ -1,0 +1,221 @@
+---
+title: "Supplyshed Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+library("lme4")
+library("lmerTest")
+library("emmeans")
+library("ggResidpanel")
+
+options(scipen = 999, width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+
+```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
+## Generate dataframe
+yield105 <- read_csv("../code/AvgYield012345678912.csv") %>%
+  group_by(MLRA) %>%
+  reframe(mlra_ha = sum(subfield_Acres)*0.405)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+AvgYield <- read_csv("../code/AvgYield012345678912.csv") %>%
+  mutate(area_ha = Acres*0.404686, ## convert ac to ha
+         subArea_ha = subfield_Acres*0.404686, ## convert bu per acre to kg per ha
+         subfieldID = SubfieldID, ## convert ac to ha
+         yrsCorn = Years_Corn,
+         avgCorn_buha = AvgYield_Corn*0.405, ## convert bu per acre to kg per ha
+         stdCorn_buha = StdYield_Corn*0.405, ## convert bu per acre to kg per ha
+         cvCorn_per = Yield_CV_Corn*100,
+         stabCorn = case_when(cvCorn_per < 5 ~ "Stable High",
+                              cvCorn_per < 10 ~ "Stable Low",
+                              cvCorn_per <= 50  ~ "Unstable"),
+         yieldCornClass = case_when(avgCorn_buha < 81.4 | CountyName == "Cedar" ~ "Low", # Cedar County 2015-2024 average = 201.4 bu per ac
+                                    avgCorn_buha > 81.4 | CountyName == "Cedar" ~ "High",
+                                    avgCorn_buha < 82.1 | CountyName == "Clint" ~ "Low", # Clinton County 2015-2024 average = 202.7 bu per ac
+                                    avgCorn_buha > 82.1 | CountyName == "Clint" ~ "High",
+                                    avgCorn_buha < 79.4 | CountyName == "Musca" ~ "Low", # Muscatine County 2015-2024 average = 196.1 bu per ac
+                                    avgCorn_buha > 79.4 | CountyName == "Musca" ~ "High",
+                                    avgCorn_buha < 82.8 | CountyName == "Scott" ~ "Low", # Scott County 2015-2024 average = 204.4 bu per ac
+                                    avgCorn_buha > 82.8 | CountyName == "Scott" ~ "High",
+                                    avgCorn_buha < 80 | CountyName == "Jones" ~ "Low", # Jones County 2015-2024 average = 197.5 bu per ac
+                                    avgCorn_buha > 80 | CountyName == "Jones" ~ "High"),
+         yrsSoy = Years_Soy,
+         avgSoy_buha = AvgYield_Soy*0.405, ## convert bu per acre to kg per ha
+         stdSoy_buha = StdYield_Soy*0.405, ## convert bu per acre to kg per ha
+         cvSoy_per = Yield_CV_Soy*100,
+         stabSoy = case_when(cvSoy_per < 5 ~ "Stable High",
+                             cvSoy_per < 10 ~ "Stable Low",
+                             cvSoy_per <= 50  ~ "Unstable"),
+         yieldSoyClass = case_when(avgSoy_buha < 24.6 | CountyName == "Cedar" ~ "Low", # Cedar County 2015-2024 average = 60.8 bu per ac
+                                    avgSoy_buha > 24.6 | CountyName == "Cedar" ~ "High",
+                                    avgSoy_buha < 24.3 | CountyName == "Clint" ~ "Low", # Clinton County 2015-2024 average = 60 bu per ac
+                                    avgSoy_buha > 24.3 | CountyName == "Clint" ~ "High",
+                                    avgSoy_buha < 24.2 | CountyName == "Musca" ~ "Low", # Muscatine County 2015-2024 average = 59.7 bu per ac
+                                    avgSoy_buha > 24.2 | CountyName == "Musca" ~ "High",
+                                    avgSoy_buha < 25.8 | CountyName == "Scott" ~ "Low", # Scott County 2015-2024 average = 63.7 bu per ac
+                                    avgSoy_buha > 25.8 | CountyName == "Scott" ~ "High",
+                                    avgSoy_buha < 23.3 | CountyName == "Jones" ~ "Low", # Jones County 2015-2024 average = 57.5 bu per ac
+                                    avgSoy_buha > 23.3 | CountyName == "Jones" ~ "High"),
+         AdjYield2015 = AdjYield2015*0.405,
+         AdjYield2016 = AdjYield2016*0.405,
+         AdjYield2017 = AdjYield2017*0.405,
+         AdjYield2018 = AdjYield2018*0.405,
+         AdjYield2019 = AdjYield2019*0.405,
+         AdjYield2020 = AdjYield2020*0.405,
+         AdjYield2021 = AdjYield2021*0.405,
+         AdjYield2022 = AdjYield2022*0.405,
+         AdjYield2023 = AdjYield2023*0.405,
+         AdjYield2024 = AdjYield2024*0.405) %>%
+  select(MLRA,HUC12,CountyName,FBndID,area_ha,subfieldID,subArea_ha,Sub_CSR2,
+         TotalYears,NullYears,yrsCorn,avgCorn_buha,stdCorn_buha,cvCorn_per,stabCorn,
+         yieldCornClass,yrsSoy,
+         yieldSoyClass,avgSoy_buha,stdSoy_buha,cvSoy_per,stabSoy,,maj15,
+         AdjYield2015,maj16,AdjYield2016,maj17,AdjYield2017,maj18,
+         AdjYield2018,maj19,AdjYield2019,maj20,AdjYield2020,maj21,
+         AdjYield2021,maj22,AdjYield2022,maj23,AdjYield2023,maj24,
+         AdjYield2024)
+
+HUC12 <- read_csv("../code/HUC12_list.csv") %>%
+  mutate(HUC12_ha = areaacres*0.405,
+         HUC12 = huc12) %>%
+  select(HUC12, HUC12_ha, name)
+
+yield <- merge(AvgYield, HUC12, by="HUC12")
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+yieldCorn_MLRA <- AvgYield %>% na.omit(avgCorn_buha) %>%
+  filter(NullYears <= 5) %>%
+  group_by(MLRA,stabCorn,yieldCornClass) %>%
+  reframe(subarea_ha = sum(subArea_ha),
+          meanCorn_buha = mean(avgCorn_buha, na.rm=TRUE),
+          meanCorn_CV = mean(cvCorn_per, na.rm=TRUE),
+          #meanSoy_buha = mean(avgSoy_buha, na.rm=TRUE),
+          n       = n()) %>%
+  mutate(combo = paste(stabCorn,yieldCornClass, sep = " x "),
+         mlra_ha = case_when(MLRA == "104" ~ 52873,
+                               MLRA == "105" ~ 5208,
+                               MLRA == "108c" ~ 170354,
+                               MLRA == "115c" ~ 1889),
+          mlra_wtd = (subarea_ha / mlra_ha)*100)
+
+
+yieldCorn_HUC12 <- yield %>% na.omit(avgCorn_buha) %>%
+  filter(NullYears <= 5) %>%
+  group_by(HUC12,stabCorn,yieldCornClass) %>%
+  reframe(subarea_ha = sum(subArea_ha),
+         meanCorn_buha = mean(avgCorn_buha, na.rm=TRUE),
+         meanCorn_CV  = mean(cvCorn_per, na.rm=TRUE),
+         #meanSoy_buha = mean(avgSoy_buha, na.rm=TRUE),
+         n       = n(),
+         huc12_wtd = subarea_ha / HUC12_ha *100) %>%
+  mutate(combo = paste(stabCorn,yieldCornClass, sep = " x ")) %>%
+  distinct()
+
+
+mxCorn = yieldCorn_MLRA %>%
+  #filter(stabCorn != "Stable High") %>%
+  ggplot(aes(x = MLRA, fill = combo, y = mlra_wtd)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90, size = 14, colour = "black", vjust = 0.5, hjust = 1, face= "bold"), 
+        axis.title.y = element_text(size = 16, face = "bold"), legend.title = element_text(size = 16, face = "bold"), 
+        legend.text = element_text(size = 12, face = "bold", colour = "black"), axis.text.y = 
+          element_text(colour = "black", size = 12, face = "bold")) + 
+  #scale_y_continuous(expand = c(0,0)) + 
+  labs(x = "MLRA", y = "Percent of MLRA (%)", fill = "Corn Stability") +
+  scale_fill_brewer(palette = "Paired")
+    
+mhCorn <- yieldCorn_HUC12 %>%
+  #filter(huc12_wtd > 5) %>%
+  filter(huc12_wtd > 10 & stabCorn == "Unstable") %>%
+  ggplot(aes(x = HUC12, fill = combo, y = huc12_wtd)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, face= "bold"), axis.title.y = element_text(face = "bold")) +
+  labs(x = "HUC12", y = "Percent of MLRA (%)", fill = "Corn Stability") +
+  scale_fill_brewer(palette = "Paired")
+
+
+mxCorn
+mhCorn
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+yieldSoy_MLRA <- AvgYield %>% na.omit(avgSoy_buha) %>%
+  filter(NullYears <= 5) %>%
+  group_by(MLRA,stabSoy,yieldSoyClass) %>%
+  reframe(subarea_ha = sum(subArea_ha),
+          meanSoy_buha = mean(avgSoy_buha, na.rm=TRUE),
+          meanSoy_CV  = mean(cvSoy_per, na.rm=TRUE),
+          #meanSoy_buha = mean(avgSoy_buha, na.rm=TRUE),
+            n       = n()) %>%
+  mutate(combo = paste(stabSoy,yieldSoyClass, sep = " x "),
+         mlra_ha = case_when(MLRA == "104" ~ 52873,
+                             MLRA == "105" ~ 5208,
+                             MLRA == "108c" ~ 170354,
+                             MLRA == "115c" ~ 1889),
+          mlra_wtd = (subarea_ha / mlra_ha)*100)
+
+yieldSoy_HUC12 <- yield %>% na.omit(avgSoy_buha) %>%
+  filter(NullYears <= 5) %>%
+  group_by(HUC12,stabSoy,yieldSoyClass) %>%
+  reframe(subarea_ha = sum(subArea_ha),
+          meanCorn_buha = mean(avgSoy_buha, na.rm=TRUE),
+          meanCorn_CV  = mean(cvSoy_per, na.rm=TRUE),
+          #meanSoy_buha = mean(avgSoy_buha, na.rm=TRUE),
+          n       = n(),
+          huc12_wtd = subarea_ha / HUC12_ha *100) %>%
+  mutate(combo = paste(stabSoy,yieldSoyClass, sep = " x ")) %>%
+  distinct()
+
+#write_csv(practMLRA_CostSumBIOno3,"practMLRA_CostSumBIOno3.csv")
+
+mxSoy = yieldSoy_MLRA %>%
+  #filter(stabCorn != "Stable High") %>%
+  ggplot(aes(x = MLRA, fill = combo, y = mlra_wtd)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90, size = 14, colour = "black", vjust = 0.5, hjust = 1, face= "bold"), 
+        axis.title.y = element_text(size = 16, face = "bold"), legend.title = element_text(size = 16, face = "bold"), 
+        legend.text = element_text(size = 12, face = "bold", colour = "black"), axis.text.y = 
+          element_text(colour = "black", size = 12, face = "bold")) + 
+  #scale_y_continuous(expand = c(0,0)) + 
+  labs(x = "MLRA", y = "Percent of MLRA (%)", fill = "Soy Stability") +
+  scale_fill_brewer(palette = "Paired")
+
+mhSoy = yieldSoy_HUC12 %>%
+  filter(stabSoy == "Unstable" & huc12_wtd > 0) %>%
+  ggplot(aes(x = HUC12, fill = combo, y = huc12_wtd)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, face= "bold"), axis.title.y = element_text(face = "bold")) +
+  labs(x = "MLRA", y = "Percet of MLRA (%)", fill = "Soy Stability") +
+  scale_fill_brewer(palette = "Paired")
+    
+mxSoy
+mhSoy
+
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+
+
+
+```
+

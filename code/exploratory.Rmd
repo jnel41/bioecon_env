@@ -1,0 +1,179 @@
+---
+title: "Supplyshed Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+library("lme4")
+library("lmerTest")
+library("emmeans")
+library("ggResidpanel")
+
+options(width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+
+```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
+## Generate dataframe
+## crop acres = all cropped acres within the drainage area of the practice.
+CBS_raw <- read_csv("../code/CBS_practiceSummary.csv") %>%
+  mutate(practice = "CBS",
+         pID = FBndID,
+         adjOCosts = OpportunityCosts,
+         cropAcres = SUM_cropAcres,
+         SUM_cpWSNO3LoadPct = CBS_practiceSummary_SUM_cpWSNO3LoadPct,
+         cpNO3load = SUM_cpNO3load,
+         cpNO3LoadReduced = SUM_cpNO3LoadReduced,
+         cpWSNO3LoadPct = SUM_cpWSNO3LoadPct,
+         cpSEDload = SUM_cpSEDload,
+         cpSEDloadlbs = SUM_cpSEDloadlbs,
+         cpSEDLoadReduced = SUM_cpSEDLoadReduced,
+         cpWSSEDLoadPct = SUM_cpWSSEDLoadPct) %>%
+  select(MLRA,HUC12,HUC12_WSNO3Load,HUC12_WSSEDLoad,pID,practice,opAcres,cropAcres,
+         DirectCost,OpportunityCosts,adjOCosts,TotalCost,bioYield,energyPot,CO2red,N2Ored,
+         cpNO3load,cpNO3LoadReduced,cpWSNO3LoadPct,cpSEDload,cpSEDloadlbs,cpSEDLoadReduced,
+         cpWSSEDLoadPct,DCredNO3,TCredNO3,DCredSED,TCredSED)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+NRW_raw <- read_csv("../code/NRW_practiceSummary.csv") %>%
+  mutate(practice = "NRW",
+         pID = SiteID,
+         adjOCosts = OpportunityCosts,
+         cropAcres = SUM_cropAcres,
+         cpNO3load = SUM_cpNO3load,
+         cpNO3LoadReduced = SUM_cpNO3LoadReduced,
+         cpWSNO3LoadPct = SUM_cpWSNO3LoadPct,
+         cpSEDload = SUM_cpSEDload,
+         cpSEDloadlbs = SUM_cpSEDloadlbs,
+         cpSEDLoadReduced = SUM_cpSEDLoadReduced,
+         cpWSSEDLoadPct = SUM_cpWSSEDLoadPct
+         ) %>%
+  select(MLRA,HUC12,HUC12_WSNO3Load,HUC12_WSSEDLoad,pID,practice,opAcres,cropAcres,
+         DirectCost,OpportunityCosts,adjOCosts,TotalCost,bioYield,energyPot,CO2red,N2Ored,
+         cpNO3load,cpNO3LoadReduced,cpWSNO3LoadPct,cpSEDload,cpSEDloadlbs,cpSEDLoadReduced,
+         cpWSSEDLoadPct,DCredNO3,TCredNO3,DCredSED,TCredSED)
+
+## crop acres = field acres
+PCP_raw <- read_csv("../code/PCP_practiceSummary.csv") %>%
+  mutate(practice = "PCP",
+         pID = FBndID,
+         adjOCosts = OpportunityCosts,
+         cpSEDload = cpSEDLoad
+         ) %>%
+  select(MLRA,HUC12,HUC12_WSNO3Load,HUC12_WSSEDLoad,pID,practice,opAcres,cropAcres,
+         DirectCost,OpportunityCosts,adjOCosts,TotalCost,bioYield,energyPot,CO2red,N2Ored,
+         cpNO3load,cpNO3LoadReduced,cpWSNO3LoadPct,cpSEDload,cpSEDloadlbs,cpSEDLoadReduced,
+         cpWSSEDLoadPct,DCredNO3,TCredNO3,DCredSED,TCredSED)
+
+## crop acres = all cropped acres within the drainage area of the practice.
+STB_raw <- read_csv("../code/STB_practiceSummary.csv") %>%
+  mutate(practice = "STB",
+         pID = riparianid,
+         cropAcres = SUM_cropAcres,
+         cpNO3load = SUM_cpNO3load,
+         cpNO3LoadReduced = SUM_cpNO3LoadReduced,
+         cpWSNO3LoadPct = SUM_cpWSNO3LoadPct,
+         cpSEDload = SUM_cpSEDload,
+         cpSEDloadlbs = SUM_cpSEDloadlbs,
+         cpSEDLoadReduced = SUM_cpSEDLoadReduced,
+         cpWSSEDLoadPct = SUM_cpWSSEDLoadPct
+         ) %>%
+  select(MLRA,HUC12,HUC12_WSNO3Load,HUC12_WSSEDLoad,pID,practice,opAcres,cropAcres,
+         DirectCost,OpportunityCosts,adjOCosts,TotalCost,bioYield,energyPot,CO2red,N2Ored,
+         cpNO3load,cpNO3LoadReduced,cpWSNO3LoadPct,cpSEDload,cpSEDloadlbs,cpSEDLoadReduced,
+         cpWSSEDLoadPct,DCredNO3,TCredNO3,DCredSED,TCredSED)
+
+## crop acres = field acres
+WCR_raw <- read_csv("../code/WCR_practiceSummary.csv") %>%
+  mutate(practice = "WCR",
+         pID = FBndID,
+         adjOCosts = OpportunityCosts,
+         TotalCost = DirectCost,
+         cpSEDload = cpSEDLoad,
+         TCredNO3 = DirectCost/cpNO3LoadReduced,
+         TCredSED = DirectCost/cpSEDLoadReduced
+         ) %>%
+  select(MLRA,HUC12,HUC12_WSNO3Load,HUC12_WSSEDLoad,pID,practice,opAcres,cropAcres,
+         DirectCost,OpportunityCosts,adjOCosts,TotalCost,bioYield,energyPot,CO2red,N2Ored,
+         cpNO3load,cpNO3LoadReduced,cpWSNO3LoadPct,cpSEDload,cpSEDloadlbs,cpSEDLoadReduced,
+         cpWSSEDLoadPct,DCredNO3,TCredNO3,DCredSED,TCredSED)
+
+practSum <- rbind(CBS_raw, NRW_raw, PCP_raw, STB_raw, WCR_raw)
+
+## Currently the acres in these tables represent the entire HUC12 area and not just the crop acres.
+wsTotalNO3Load <- read_csv("../code/wsTotalNO3Load.csv") %>%
+  mutate(pollutant = "nitrate",
+         loadlbs = SUM_wsNO3load) %>%
+  select(HUC12,pollutant,loadlbs)
+         
+wsTotalSEDLoad <- read_csv("../code/wsTotalSEDLoad.csv") %>%
+  mutate(pollutant = "sediment",
+         loadlbs = SUM_Mean_sed_lbs) %>%
+  select(HUC12,pollutant,loadlbs)
+
+wsLoad <- rbind(wsTotalNO3Load, wsTotalSEDLoad)
+
+
+## field loads to estimate load by MLRA.
+fbMgmt<- read_csv("../code/fbNO3Load.csv") %>%
+  select(MLRA,FBndID,isAG,Acres,inSup,GenLU,CropRotatn,Nrate,NO3loadAc)
+  
+fbNO3Load <- read_csv("../code/fbNO3Load.csv") %>%
+  mutate(pollutant = "nitrate",
+         loadlbs = Acres*NO3loadAc) %>%
+  select(MLRA,FBndID,isAG,Acres,inSup,pollutant,loadlbs)
+         
+fbSEDLoad <- read_csv("../code/fbSEDLoad.csv") %>%
+  mutate(pollutant = "sediment",
+         loadlbs = Mean_sed_lbs) %>%
+  select(MLRA,FBndID,isAG,Acres,inSup,pollutant,loadlbs)
+
+fbLoad <- rbind(fbNO3Load, fbSEDLoad)
+
+
+## Dataframe check
+#head(practSum)
+#head(wsLoad)
+summary(practSum)
+#summary(wsLoad)
+
+```
+
+Compare costs. It might be interesting to have a side-by-side comparison of direct, 
+total, and opportunity costs. 
+
+```{r explore_df, dependson="create_df"}
+practSum_TCredSED <- filter(practSum, TCredSED < 1000)
+
+p1 <- ggplot(fbLoad, aes(MLRA,loadlbs, color = pollutant))
+p1 + geom_boxplot()
+
+p2 <- ggplot(practSum, aes(practice,cpNO3LoadReduced, color=MLRA))
+p2 + geom_boxplot()
+
+p3 <- ggplot(practSum, aes(MLRA,cpSEDLoadReduced, color=practice))
+p3 + geom_boxplot()
+
+p4 <- ggplot(practSum, aes(MLRA,OpportunityCosts, color=practice))
+p4 + geom_boxplot()
+
+p5 <- ggplot(practSum, aes(MLRA,TCredSED, color=practice))
+p5 + geom_boxplot()
+
+##make a graph comparing direct, opportunity, and total costs per practice
+
+```
