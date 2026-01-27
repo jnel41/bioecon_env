@@ -29,12 +29,12 @@ dir.create("fig", showWarnings = FALSE)
 
 ```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
 ## Generate dataframe
-profit105 <- read_csv("../code/AvgProfit012345678912.csv") %>%
-  group_by(MLRA) %>%
-  reframe(mlra_ha = sum(subfield_Acres)*0.405)
+# profit105 <- read_csv("../code/AvgProfit012345678912.csv") %>%
+#   group_by(MLRA) %>%
+#   reframe(mlra_ha = sum(subfield_Acres)*0.405)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-AvgProfit <- read_csv("../code/AvgProfit012345678912.csv") %>%
+AvgProfit <- read_csv("../data/raw/AvgProfit012345678912.csv") %>%
   mutate(area_ha = Acres*0.404686, ## convert ac to ha
          subArea_ha = subfield_Acres*0.404686, ## convert bu per acre to kg per ha
          subfieldID = SubfieldID,
@@ -45,7 +45,7 @@ AvgProfit <- read_csv("../code/AvgProfit012345678912.csv") %>%
   select(MLRA,HUC12,CountyName,FBndID,area_ha,subfieldID,subArea_ha,Sub_CSR2,
          yrsCorn,yrsSoy,AvgProfit,UnpYears,unprofit)
 
-HUC12 <- read_csv("../code/HUC12_list.csv") %>%
+HUC12 <- read_csv("../data/raw/HUC12_list.csv") %>%
   mutate(HUC12_ha = areaacres*0.405,
          HUC12 = huc12) %>%
   select(HUC12, HUC12_ha, name)
@@ -107,7 +107,8 @@ mhProfit
 ```
 
 ```{r mean_data, dependson = "create_soilpad"}
-profit_yield <- merge(AvgProfit, AvgYield, by="subfieldID") 
+profit_yield <- merge(AvgProfit, AvgYield, by="subfieldID")
+profit_yield$HUC12 <- profit_yield$HUC12.x
 profit_yield2 <- merge(profit_yield, HUC12, by="HUC12")
 
 pyMLRA <- profit_yield %>%
@@ -131,7 +132,7 @@ mxPY <- pyMLRA %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, face= "bold"), axis.title.y = element_text(face = "bold")) +
   labs(x = "MLRA", y = "Percent of MLRA (%)", fill = "Combo") +
   scale_fill_brewer(palette = "Paired")
-mxPY
+
 
 pyHUC12 <- profit_yield2 %>%
   group_by(HUC12,unprofit,stabCorn,yieldCornClass) %>%
@@ -152,6 +153,7 @@ mhPY <- pyHUC12 %>%
   scale_fill_brewer(palette = "Paired")
 
 mhPY
+mxPY
 
 ```
 

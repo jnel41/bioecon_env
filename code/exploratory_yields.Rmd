@@ -29,12 +29,12 @@ dir.create("fig", showWarnings = FALSE)
 
 ```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
 ## Generate dataframe
-yield105 <- read_csv("../code/AvgYield012345678912.csv") %>%
-  group_by(MLRA) %>%
-  reframe(mlra_ha = sum(subfield_Acres)*0.405)
+# yield105 <- read_csv("../code/AvgYield012345678912.csv") %>%
+#   group_by(MLRA) %>%
+#   reframe(mlra_ha = sum(subfield_Acres)*0.405)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-AvgYield <- read_csv("../code/AvgYield012345678912.csv") %>%
+AvgYield <- read_csv("../data/raw/AvgYield012345678912.csv") %>%
   mutate(area_ha = Acres*0.404686, ## convert ac to ha
          subArea_ha = subfield_Acres*0.404686, ## convert bu per acre to kg per ha
          subfieldID = SubfieldID, ## convert ac to ha
@@ -91,7 +91,7 @@ AvgYield <- read_csv("../code/AvgYield012345678912.csv") %>%
          AdjYield2021,maj22,AdjYield2022,maj23,AdjYield2023,maj24,
          AdjYield2024)
 
-HUC12 <- read_csv("../code/HUC12_list.csv") %>%
+HUC12 <- read_csv("../data/raw/HUC12_list.csv") %>%
   mutate(HUC12_ha = areaacres*0.405,
          HUC12 = huc12) %>%
   select(HUC12, HUC12_ha, name)
@@ -144,7 +144,7 @@ mxCorn = yieldCorn_MLRA %>%
     
 mhCorn <- yieldCorn_HUC12 %>%
   #filter(huc12_wtd > 5) %>%
-  filter(huc12_wtd > 10 & stabCorn == "Unstable") %>%
+  #filter(stabCorn == "Unstable") %>%
   ggplot(aes(x = HUC12, fill = combo, y = huc12_wtd)) +
   geom_bar(stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, face= "bold"), axis.title.y = element_text(face = "bold")) +
