@@ -78,6 +78,11 @@ profit_HUC12 <- profit %>%
          huc12_wtd = (subarea_ha / HUC12_ha)*100) %>%
   distinct()
 
+unprofit <- profit_HUC12 %>%
+  filter(unprofit == "unprofitable") %>%
+  arrange(desc(huc12_wtd)) %>%
+  slice(1:10)
+  
 
 mxProfit = profit_MLRA %>%
   #filter(stabCorn != "Stable High") %>%
@@ -154,6 +159,12 @@ mhPY <- pyHUC12 %>%
 
 mhPY
 mxPY
+
+unprofit_yield <- pyHUC12 %>%
+  filter(unprofit == "unprofitable" & stabCorn == "Unstable") %>%
+  arrange(desc(huc12_wtd)) %>%
+  slice(1:11) # did the top 11, because the top 10 included a duplicate HUC12
+  
 
 ```
 

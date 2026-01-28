@@ -373,9 +373,10 @@ practIWAP_CostSumBIO <- practSumBIO %>% filter(IWAP == 1) %>%
 ggplot(data, aes(x=name, y=value)) + 
   geom_bar(stat = "identity")
 
-DC_kgNO3confintBIO <- practSumBIO %>%
+DC_kgNO3confintBIOHUC12 <- practSumBIO %>%
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   reframe(mean = mean(DC_kgNO3, na.rm=TRUE),
             median = median(DC_kgNO3, na.rm = TRUE),
             n = length(DC_kgNO3),
@@ -385,12 +386,15 @@ DC_kgNO3confintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(DC_kgNO3, na.rm = TRUE),
+            max = max(DC_kgNO3, na.rm = TRUE))
 
-TC_kgNO3confintBIO <- practSumBIO %>%
+#the better way to describe this is visually. map of watersheds. symbolized by hectares of land impacts and labeled with cost-effectivness per rye and prairie
+
+TC_kgNO3confintBIOHUC12 <- practSumBIO %>%
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   reframe(mean = mean(TC_kgNO3, na.rm=TRUE),
             median = median(TC_kgNO3, na.rm = TRUE),
             n = length(TC_kgNO3),
@@ -400,12 +404,13 @@ TC_kgNO3confintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(TC_kgNO3, na.rm = TRUE),
+            max = max(TC_kgNO3, na.rm = TRUE))
 
-DC_kgSEDconfintBIO <- practSumBIO %>% 
+DC_kgSEDconfintBIOHUC12 <- practSumBIO %>% 
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   summarize(mean = mean(DC_kgSED, na.rm=TRUE),
             median = median(DC_kgSED, na.rm = TRUE),
             n = length(DC_kgSED),
@@ -415,11 +420,12 @@ DC_kgSEDconfintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(DC_kgSED, na.rm = TRUE),
+            max = max(DC_kgSED, na.rm = TRUE))
 
-TC_kgSEDconfintBIO <- practSumBIO %>%
-  group_by(MLRA,INRS) %>%
+TC_kgSEDconfintBIOHUC12 <- practSumBIO %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   filter(cpSEDldRedkg >= 0) %>%
   summarize(mean = mean(TC_kgSED, na.rm=TRUE),
             median = median(TC_kgSED, na.rm = TRUE),
@@ -430,8 +436,8 @@ TC_kgSEDconfintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(TC_kgSED, na.rm = TRUE),
+            max = max(TC_kgSED, na.rm = TRUE))
 
 DC_kgNO3confintBIOSup <- practSumBIO %>%
   group_by(INRS) %>%
@@ -493,10 +499,10 @@ TC_kgSEDconfintBIOSup <- practSumBIO %>%
             min = min(TC_kgSED),
             max = max(TC_kgSED))
 
-write_csv(DC_kgNO3confintBIO,"DC_kgNO3confintBIO.csv")
-write_csv(TC_kgNO3confintBIO,"TC_kgNO3confintBIO.csv")
-write_csv(DC_kgSEDconfintBIO,"DC_kgSEDconfintBIO.csv")
-write_csv(TC_kgSEDconfintBIO,"TC_kgSEDconfintBIO.csv")
+write_csv(DC_kgNO3confintBIOHUC12,"../data/tidy/DC_kgNO3confintBIOHUC12.csv")
+write_csv(TC_kgNO3confintBIOHUC12,"../data/tidy/TC_kgNO3confintBIOHUC12.csv")
+write_csv(DC_kgSEDconfintBIOHUC12,"../data/tidy/DC_kgSEDconfintBIOHUC12.csv")
+write_csv(TC_kgSEDconfintBIOHUC12,"../data/tidy/TC_kgSEDconfintBIOHUC12.csv")
 
 ```
 
