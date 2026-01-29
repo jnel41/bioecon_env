@@ -30,7 +30,7 @@ dir.create("fig", showWarnings = FALSE)
 ```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
 ## Generate dataframe
 ## crop acres = all cropped acres within the drainage area of the practice.
-CBS_BIOraw <- read_csv("../code/CBS_practiceSummary_BIO.csv") %>%
+CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIO.csv") %>%
   mutate(practice = "CBS",
          pID = FBndID,
          IWAP = 2,
@@ -53,7 +53,7 @@ CBS_BIOraw <- read_csv("../code/CBS_practiceSummary_BIO.csv") %>%
          DC_kgNO3,TC_kgNO3,DC_kgSED,TC_kgSED)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-NRW_BIOraw <- read_csv("../code/NRW_practiceSummary_BIO.csv") %>%
+NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIO.csv") %>%
   mutate(practice = "NRW",
          pID = SiteID,
          IWAP = 0,
@@ -76,7 +76,7 @@ NRW_BIOraw <- read_csv("../code/NRW_practiceSummary_BIO.csv") %>%
          DC_kgNO3,TC_kgNO3,DC_kgSED,TC_kgSED)
 
 ## crop acres = field acres
-PCP_BIOraw <- read_csv("../code/PCP_practiceSummary_BIO.csv") %>%
+PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIO.csv") %>%
   mutate(practice = "PCP",
          pID = FBndID,
          IWAP = 1,
@@ -99,7 +99,7 @@ PCP_BIOraw <- read_csv("../code/PCP_practiceSummary_BIO.csv") %>%
          DC_kgNO3,TC_kgNO3,DC_kgSED,TC_kgSED)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-STB_BIOraw <- read_csv("../code/STB_practiceSummary_BIO.csv") %>%
+STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIO.csv") %>%
   mutate(practice = "STB",
          pID = riparianid,
          IWAP = 2,
@@ -123,7 +123,7 @@ STB_BIOraw <- read_csv("../code/STB_practiceSummary_BIO.csv") %>%
          DC_kgNO3,TC_kgNO3,DC_kgSED,TC_kgSED)
 
 ## crop acres = field acres
-WCR_BIOraw <- read_csv("../code/WCR_practiceSummary_BIO.csv") %>%
+WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIO.csv") %>%
   mutate(practice = "WCR",
          pID = FBndID,
          IWAP = 0,
@@ -151,12 +151,12 @@ practSumBIO <- within(practSumBIO_df, MLRA[MLRA == 108] <- "108c")
 practSumBIO <- within(practSumBIO, MLRA[MLRA == 115] <- "115c")
 
 ## Currently the acres in these tables represent the entire HUC12 area and not just the crop acres.
-wsTotalNO3Load <- read_csv("../code/wsTotalNO3Load.csv") %>%
+wsTotalNO3Load <- read_csv("../data/raw/wsTotalNO3Load.csv") %>%
   mutate(pollutant = "nitrate",
          loadkg = SUM_wsNO3load*0.453592) %>% # convert lb to kg
   select(HUC12,pollutant,loadkg)
          
-wsTotalSEDLoad <- read_csv("../code/wsTotalSEDLoad.csv") %>%
+wsTotalSEDLoad <- read_csv("../data/raw/wsTotalSEDLoad.csv") %>%
   mutate(pollutant = "sediment",
          loadkg = SUM_Mean_sed_lbs*0.453592) %>% # convert lb to kg
   select(HUC12,pollutant,loadkg)
@@ -165,23 +165,23 @@ wsLoad <- rbind(wsTotalNO3Load, wsTotalSEDLoad)
 
 
 ## field loads to estimate load by MLRA.
-fbMgmt<- read_csv("../code/fbNO3Load.csv") %>%
+fbMgmt<- read_csv("../data/raw/fbNO3Load.csv") %>%
   mutate(NO3load_kgha = NO3loadAc*0.892179, # convert lb per ac to kg per ha
          Nrate_kgha = Nrate*0.892179, # convert lb per ac to kg per ha
          hectares = Acres * 0.404686) %>% # convert ac per ha
   select(MLRA,FBndID,isAG,hectares,inSup,GenLU,CropRotatn,Nrate_kgha,NO3load_kgha)
 
-fbSieversRoute <-  read_csv("../code/fbSieversRoutes.csv") %>%
+fbSieversRoute <-  read_csv("../data/raw/fbSieversRoutes.csv") %>%
   mutate(FBndID = trimws(sub("^([^-]+)-.*$", "\\1", Name),which="right")) %>%
   select(FBndID,Total_TruckTravelTime,Total_Kilometers)
   
-fbNO3Load <- read_csv("../code/fbNO3Load.csv") %>%
+fbNO3Load <- read_csv("../data/raw/fbNO3Load.csv") %>%
   mutate(pollutant = "nitrate",
          hectares = Acres*0.404686, # convert ac per ha
          loadkg = (Acres*NO3loadAc)*0.453592) %>% # convert lb to kg
   select(MLRA,FBndID,isAG,hectares,inSup,pollutant,loadkg)
          
-fbSEDLoad <- read_csv("../code/fbSEDLoad.csv") %>%
+fbSEDLoad <- read_csv("../data/raw/fbSEDLoad.csv") %>%
   mutate(pollutant = "sediment",
          hectares = Acres*0.404686, # convert ac per ha
          loadkg = Mean_sed_lbs*0.453592) %>% # convert lb to kg
@@ -256,7 +256,7 @@ practMLRA_CostSumBIOno3 <- practSumBIO %>% drop_na(cpNO3ldkg) %>%
             n       = n(),
             .groups = "drop")
 
-write_csv(practMLRA_CostSumBIOno3,"practMLRA_CostSumBIOno3.csv")
+#write_csv(practMLRA_CostSumBIOno3,"practMLRA_CostSumBIOno3.csv")
 
 practMLRA_CostSumBIOsed <- practSumBIO %>% drop_na(cpSEDldkg) %>% filter(DC_kgSED > 0) %>%
   filter(cpSEDldRedkg >= 0) %>%
@@ -283,7 +283,7 @@ practMLRA_CostSumBIOsed <- practSumBIO %>% drop_na(cpSEDldkg) %>% filter(DC_kgSE
             n       = n(),
             .groups = "drop")
 
-write_csv(practMLRA_CostSumBIOsed,"practMLRA_CostSumBIOsed.csv")
+#write_csv(practMLRA_CostSumBIOsed,"practMLRA_CostSumBIOsed.csv")
 
 
 ## Which HUC12 should we start with?
@@ -315,7 +315,7 @@ practHUC12_CostSumBIOno3 <- practSumBIO %>% drop_na(cpNO3ldkg) %>%
             n       = n(),
             .groups = "drop")
 
-write_csv(practHUC12_CostSumBIOno3,"practHUC12_CostSumBIOno3.csv")
+#write_csv(practHUC12_CostSumBIOno3,"practHUC12_CostSumBIOno3.csv")
 
 practHUC12_CostSumBIOsed <- practSumBIO %>% drop_na(cpSEDldkg) %>% filter(DC_kgSED > 0) %>%
   filter(cpSEDldRedkg >= 0) %>%
@@ -343,7 +343,7 @@ practHUC12_CostSumBIOsed <- practSumBIO %>% drop_na(cpSEDldkg) %>% filter(DC_kgS
             n       = n(),
             .groups = "drop")
 
-write_csv(practHUC12_CostSumBIOsed,"practHUC12_CostSumBIOsed.csv")
+#write_csv(practHUC12_CostSumBIOsed,"practHUC12_CostSumBIOsed.csv")
 
 # How much will it cost to achieve IWAP?
 practIWAP_CostSumBIO <- practSumBIO %>% filter(IWAP == 1) %>%
@@ -365,7 +365,7 @@ practIWAP_CostSumBIO <- practSumBIO %>% filter(IWAP == 1) %>%
             n       = n(),
             .groups = "drop")
 
-write_csv(practIWAP_CostSumBIO,"practIWAP_CostSumBIO.csv")
+#write_csv(practIWAP_CostSumBIO,"practIWAP_CostSumBIO.csv")
 
 ```
 
@@ -373,9 +373,10 @@ write_csv(practIWAP_CostSumBIO,"practIWAP_CostSumBIO.csv")
 ggplot(data, aes(x=name, y=value)) + 
   geom_bar(stat = "identity")
 
-DC_kgNO3confintBIO <- practSumBIO %>%
+DC_kgNO3confintBIOHUC12 <- practSumBIO %>%
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   reframe(mean = mean(DC_kgNO3, na.rm=TRUE),
             median = median(DC_kgNO3, na.rm = TRUE),
             n = length(DC_kgNO3),
@@ -385,12 +386,15 @@ DC_kgNO3confintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(DC_kgNO3, na.rm = TRUE),
+            max = max(DC_kgNO3, na.rm = TRUE))
 
-TC_kgNO3confintBIO <- practSumBIO %>%
+#the better way to describe this is visually. map of watersheds. symbolized by hectares of land impacts and labeled with cost-effectivness per rye and prairie
+
+TC_kgNO3confintBIOHUC12 <- practSumBIO %>%
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   reframe(mean = mean(TC_kgNO3, na.rm=TRUE),
             median = median(TC_kgNO3, na.rm = TRUE),
             n = length(TC_kgNO3),
@@ -400,12 +404,13 @@ TC_kgNO3confintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(TC_kgNO3, na.rm = TRUE),
+            max = max(TC_kgNO3, na.rm = TRUE))
 
-DC_kgSEDconfintBIO <- practSumBIO %>% 
+DC_kgSEDconfintBIOHUC12 <- practSumBIO %>% 
   filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA,INRS) %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   summarize(mean = mean(DC_kgSED, na.rm=TRUE),
             median = median(DC_kgSED, na.rm = TRUE),
             n = length(DC_kgSED),
@@ -415,11 +420,12 @@ DC_kgSEDconfintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(DC_kgSED, na.rm = TRUE),
+            max = max(DC_kgSED, na.rm = TRUE))
 
-TC_kgSEDconfintBIO <- practSumBIO %>%
-  group_by(MLRA,INRS) %>%
+TC_kgSEDconfintBIOHUC12 <- practSumBIO %>%
+  #group_by(MLRA,INRS) %>%
+  group_by(HUC12,biomass) %>%
   filter(cpSEDldRedkg >= 0) %>%
   summarize(mean = mean(TC_kgSED, na.rm=TRUE),
             median = median(TC_kgSED, na.rm = TRUE),
@@ -430,8 +436,8 @@ TC_kgSEDconfintBIO <- practSumBIO %>%
             margErr = t.score*se,
             lb = mean - margErr,
             ub = mean + margErr,
-            min = min(TC_kgSED),
-            max = max(TC_kgSED))
+            min = min(TC_kgSED, na.rm = TRUE),
+            max = max(TC_kgSED, na.rm = TRUE))
 
 DC_kgNO3confintBIOSup <- practSumBIO %>%
   group_by(INRS) %>%
@@ -493,10 +499,10 @@ TC_kgSEDconfintBIOSup <- practSumBIO %>%
             min = min(TC_kgSED),
             max = max(TC_kgSED))
 
-write_csv(DC_kgNO3confintBIO,"DC_kgNO3confintBIO.csv")
-write_csv(TC_kgNO3confintBIO,"TC_kgNO3confintBIO.csv")
-write_csv(DC_kgSEDconfintBIO,"DC_kgSEDconfintBIO.csv")
-write_csv(TC_kgSEDconfintBIO,"TC_kgSEDconfintBIO.csv")
+write_csv(DC_kgNO3confintBIOHUC12,"../data/tidy/DC_kgNO3confintBIOHUC12.csv")
+write_csv(TC_kgNO3confintBIOHUC12,"../data/tidy/TC_kgNO3confintBIOHUC12.csv")
+write_csv(DC_kgSEDconfintBIOHUC12,"../data/tidy/DC_kgSEDconfintBIOHUC12.csv")
+write_csv(TC_kgSEDconfintBIOHUC12,"../data/tidy/TC_kgSEDconfintBIOHUC12.csv")
 
 ```
 
@@ -511,9 +517,9 @@ fbLoadSumStat <- fbLoad %>%
   filter(loadkg > 0) %>%
   group_by(MLRA, pollutant) %>%
   summarise(n=n(),
-            sumLoadmt = sum(loadlbs)/2205, ## lb to metric tons
-            meankg = mean(loadlbs/2.2), ## lb to kg
-            sdkg=sd(loadlbs/2.2),
+            sumLoadkg = sum(loadkg),
+            meankg = mean(loadkg), 
+            sdkg=sd(loadkg),
             sekg=(sdkg/sqrt(n)))
 
 ggplot(fbLoadSumStat, aes(MLRA, meankg, fill=pollutant)) +
@@ -525,12 +531,12 @@ ggplot(fbLoadSumStat, aes(MLRA, meankg, fill=pollutant)) +
   xlab("MLRA") +
   ylab("Pollutant Load (kg)")
 
-ggplot(fbLoadSumStat, aes(MLRA, (sumLoadmt), fill=pollutant)) +
+ggplot(fbLoadSumStat, aes(MLRA, (sumLoadkg), fill=pollutant)) +
   geom_bar(stat = "identity",position=position_dodge()) +
   scale_fill_manual(values=c("#999999", "#999123")) +
   ggtitle("Total Pollutant Load Per Field by MLRA") +
   xlab("MLRA") +
-  ylab("Pollutant Load (tonnes)")
+  ylab("Pollutant Load (kg)")
 ##make a graph comparing direct, opportunity, and total costs per practice
 
 ```
