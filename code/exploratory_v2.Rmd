@@ -39,6 +39,8 @@ CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIO.csv") %>%
          adjOCost = OpportunityCost,
          opArea_ha = opAcres*0.404686, ## convert ac to ha
          cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         bioYield_Mg = bioyield * 0.9072, ## convert tons to Mg
+         energyPot_kWh = energyPot * 277.778, ## GJ to kWh
          cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = SUM_cpSEDloadlbs*0.453592, ## convert lb to kg
