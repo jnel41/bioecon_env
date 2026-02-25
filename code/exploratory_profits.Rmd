@@ -164,7 +164,7 @@ unprofit_yield <- pyHUC12 %>%
   filter(unprofit == "unprofitable" & stabCorn == "Unstable") %>%
   arrange(desc(huc12_wtd)) %>%
   slice(1:11) # did the top 11, because the top 10 included a duplicate HUC12
-  
+write_csv(unprofit_yield,"../data/tidy/unprofit_yield.csv")
 
 ```
 
