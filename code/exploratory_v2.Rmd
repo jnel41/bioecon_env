@@ -257,8 +257,8 @@ practMLRA_counts <- practSumBIO %>%
                    n = n(), .groups = "drop")
 
 bioMLRA_counts <- practSumBIO %>%
-         group_by(MLRA, biomass) %>%
-         summarize(hectares = sum(opArea_ha), 
+         group_by(biomass) %>%
+         summarize(hectares = sum(bioYield_Mg), 
                    n = n(), .groups = "drop")
 
 practHUC12_counts <- practSumBIO %>%
@@ -270,6 +270,24 @@ bioHUC12_counts <- practSumBIO %>%
          group_by(HUC12, biomass) %>%
          summarize(hectares = sum(opArea_ha),
                    n = n(), .groups = "drop")
+
+bioSup_counts <- practSumBIO %>%
+         group_by(biomass) %>%
+         summarize(hectares = sum(opArea_ha),
+                   yield = sum(bioYield_Mg),
+                   n = n(), .groups = "drop")
+
+bioSup_counts <- practSumBIO %>%
+         reframe(hectares = sum(opArea_ha),
+                   yield = sum(bioYield_Mg),
+                   energy = sum(energyPot),
+                   NO3 = sum(cpNO3ldRedkg),
+                   Sed = sum(cpSEDldRedkg),
+                   CO2 = sum(CO2red),
+                   N2O = sum(N2Ored),
+                   DC = sum(DirectCost),
+                   TC = sum(TotalCost),
+                   OC = sum(TotalCost) - sum(DirectCost))
 
 IWAPHUC12_counts <- practSumBIO %>%
   filter(IWAP >0) %>%
@@ -1072,7 +1090,8 @@ bio_CostSumSED <- practSumBIO %>% drop_na(cpSEDldkg) %>%
             .groups = "drop")
 
 envOutcome_CostSum <- practSumBIO %>%
-  group_by(FBndID) %>%
+  #group_by(FBndID) %>%
+  group_by(INRS) %>%
   summarize(opArea_ha = sum(opArea_ha),
             n       = n(),
             MLRA = max(MLRA),
@@ -1089,7 +1108,9 @@ envOutcome_CostSum <- practSumBIO %>%
             sumOC = sum(adjOCost),
             sumTC = sum(TotalCost),
             sumCO2red = sum(CO2red),
+            meanTC_MgCO2 = mean(TC_MgCO2, na.rm=TRUE),
             sumN2ored = sum(N2Ored),
+            meanTC_MgN2O = mean(TC_MgN2O, na.rm=TRUE),
             sumcpNO3LoadReduced = sum(cpNO3ldRedkg, na.rm = TRUE),
             minNO3Red = min(cpNO3ldRedkg),
             maxNO3Red = max(cpNO3ldRedkg),
@@ -1100,10 +1121,12 @@ envOutcome_CostSum <- practSumBIO %>%
             sumDC_kgNO3 = sum(DC_kgNO3, na.rm = TRUE),
             minDC_kgNO3 = min(DC_kgNO3),
             maxDC_kgNO3 = max(DC_kgNO3),
-            sumTC_kgNO3 = sum(TC_kgNO3, na.rm = TRUE),
+            #sumTC_kgNO3 = sum(TC_kgNO3, na.rm = TRUE),
+            meanTC_kgNO3 = mean(TC_kgNO3, na.rm = TRUE),
             minTC_kgNO3 = min(TC_kgNO3),
             maxTC_kgNO3 = max(TC_kgNO3),
-            sumDC_kgSED = sum(DC_kgSED, na.rm = TRUE),
+            #sumDC_kgSED = sum(DC_kgSED, na.rm = TRUE),
+            meanTC_kgSED = mean(TC_kgSED, na.rm = TRUE),
             minDC_kgSED = min(DC_kgSED),
             maxDC_kgSED = max(DC_kgSED),
             sumTC_kgSED = sum(TC_kgSED, na.rm = TRUE),
