@@ -30,7 +30,7 @@ dir.create("fig", showWarnings = FALSE)
 ```{r create_df, cache.extra=tools::md5sum("../code/CBS_practiceSummary.csv")}
 ## Generate dataframe
 ## crop acres = all cropped acres within the drainage area of the practice.
-CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv3.csv") %>%
+CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "CBS",
          pID = FBndID,
          IWAP = 2,
@@ -69,8 +69,8 @@ CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
@@ -78,7 +78,7 @@ CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv3.csv") %>%
          DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv3.csv") %>%
+NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "NRW",
          pID = SiteID,
          IWAP = 0,
@@ -116,8 +116,8 @@ NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
@@ -125,12 +125,13 @@ NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv3.csv") %>%
          DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = field acres
-PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv3.csv") %>%
+PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "PCP",
          pID = FBndID,
          IWAP = 1,
          INRS = "Perennial crops",
          biomass = "prairie",
+         DirectCost_CP = DirectCost,
          adjOCost = OpportunityCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
@@ -163,8 +164,8 @@ PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
@@ -172,7 +173,7 @@ PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv3.csv") %>%
          DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
-STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv3.csv") %>%
+STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "STB",
          pID = riparianid,
          IWAP = 2,
@@ -211,15 +212,15 @@ STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
          DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
          DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
-RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv3.csv") %>%
+RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "RIB",
          pID = riparianid,
          IWAP = 2,
@@ -258,8 +259,8 @@ RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
@@ -268,7 +269,7 @@ RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv3.csv") %>%
 
 
 ## crop acres = field acres
-WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIOv3.csv") %>%
+WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "WCR",
          pID = FBndID,
          IWAP = 0,
@@ -308,8 +309,8 @@ WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIOv3.csv") %>%
          DC_enPot = DirectCost / energyPot,
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
-         TCcp_enPot = TotalCost / energyPot) %>%
-  select(MLRA,HUC12,pID,practice,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
+         TCcp_enPot = TotalCost_CP / energyPot) %>%
+  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
          adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
          cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
          DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
@@ -341,9 +342,22 @@ fbMgmt<- read_csv("../data/raw/fbNO3Load.csv") %>%
          hectares = Acres * 0.404686) %>% # convert ac per ha
   select(MLRA,FBndID,isAG,hectares,inSup,GenLU,CropRotatn,Nrate_kgha,NO3load_kgha)
 
-fbSieversRoute <-  read_csv("../data/raw/fbSieversRoutes.csv") %>%
-  mutate(FBndID = trimws(sub("^([^-]+)-.*$", "\\1", Name),which="right")) %>%
-  select(FBndID,Total_TruckTravelTime,Total_Kilometers)
+fbSieversRoute <-  read_csv("../data/raw/fbSieversRoutes_v4.csv") %>%
+  mutate(FBndID = trimws(sub("^([^-]+)-.*$", "\\1", Name),which="right"),
+         rnd_dist = 2*Total_Kilometers,
+         rnd_time_hr = (2*Total_TruckTravelTime)/60,
+         #km_hr = Total_Kilometers / (Total_TruckTravelTime/60),
+         fuel = 5.165*0.26417, # $ per gallon  --> $ per liter reference USDA AMS Transport Report 4/23/2026
+         fuel_eff = 1/(5.5*0.425144), # mpg --> kpL --> Liters per km. This value was taken from Gemini AI and should be fact-checked.
+         fuel_cost = rnd_dist*fuel_eff*fuel,
+         lbr_cost = rnd_time_hr*118, # 2026 ISU Custom Rate Survey. Haul round bales by truck or trailer/ hour
+         trans_cost = fuel_cost+lbr_cost
+         ) %>%
+  select(FBndID,Total_TruckTravelTime,Total_Kilometers,fuel_cost, lbr_cost, trans_cost)
+  
+  # From AD facility and aggregated load pick-up. Some fields will not will be able to fill a full load.
+  # Cundiff et al. 2024
+  #cost for gas, cost for load-out logistics. Assumptions: owns truck, aggregator pays facility. 
   
 fbNO3Load <- read_csv("../data/raw/fbNO3Load.csv") %>%
   mutate(pollutant = "nitrate",
@@ -1193,7 +1207,7 @@ bio_CostSumNO3 <- practSumBIO %>% drop_na(cpNO3ldkg) %>%
             .groups = "drop")
 
 bio_CostSumSED <- practSumBIO %>% drop_na(cpSEDldkg) %>%
-  group_by(FBndID, biomass) %>%
+  group_by(radial, biomass) %>%
   summarize(opArea_ha = sum(opArea_ha),
             n       = n(),
             sumbioYield = sum(bioYield_Mg),
@@ -1210,14 +1224,17 @@ bio_CostSumSED <- practSumBIO %>% drop_na(cpSEDldkg) %>%
             .groups = "drop")
 
 envOutcome_CostSum <- practSumBIO %>%
-  #group_by(INRS,IWAP,HUC12) %>%
+  #group_by(practice) %>%
   group_by(FBndID) %>%
+  #group_by(radial,biomass) %>%
   summarize(opArea_ha = sum(opArea_ha),
             n       = n(),
             MLRA = max(MLRA),
             HUC12 = max(HUC12),
-            IWAP = max(IWAP),
-            practice = list(unique(INRS)),
+            radial = max(radial),
+            IWAP = list(unique(IWAP)),
+            practice = list(unique(practice)),
+
             ## Bio yield summary
             sum_BioMg = sum(bioYield_Mg),
             #BioMg_med = median(bioYield_Mg, na.rm = TRUE),
@@ -1226,6 +1243,9 @@ envOutcome_CostSum <- practSumBIO %>%
             #BioTC_Mg_med = median(TC_MgBio, na.rm = TRUE),
             #Q1TC_MgBio = quantile(TC_MgBio, probs = c(0.25)),
             #Q3TC_MgBio = quantile(TC_MgBio, probs = c(0.75)),
+            #BioTCcp_Mg_med = median(TCcp_MgBio, na.rm = TRUE),
+            #Q1TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.25)),
+            #Q3TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.75)),
             
             ## Energy potential summary
             sumEnergyPot = sum(energyPot),
@@ -1235,11 +1255,16 @@ envOutcome_CostSum <- practSumBIO %>%
             #engPotTC_med = median(TC_enPot, na.rm = TRUE),
             #Q1TC_enPot = quantile(TC_enPot, probs = c(0.25)),
             #Q3TC_enPot = quantile(TC_enPot, probs = c(0.75)),
+            #engPotTCcp_med = median(TCcp_enPot, na.rm = TRUE),
+            #Q1TCcp_enPot = quantile(TCcp_enPot, probs = c(0.25)),
+            #Q3TCcp_enPot = quantile(TCcp_enPot, probs = c(0.75)),
             
             ## Cost summary per field
             sumDC = sum(DirectCost),
             sumOC = sum(adjOCost),
             sumTC = sum(TotalCost),
+            sumDCcp = sum(DirectCost_CP),
+            sumTCcp = sum(TotalCost_CP),
             
             ## CO2 summary
             sumCO2 = sum(CO2red),
@@ -1249,6 +1274,9 @@ envOutcome_CostSum <- practSumBIO %>%
             #CO2TC_Mg_med = median(TC_MgCO2, na.rm=TRUE),
             #Q1_CO2TC_Mg = quantile(TC_MgCO2, probs = c(0.25)),
             #Q3_CO2TC_Mg = quantile(TC_MgCO2, probs = c(0.75)),
+            #CO2TCcp_Mg_med = median(TCcp_MgCO2, na.rm=TRUE),
+            #Q1_CO2TCcp_Mg = quantile(TCcp_MgCO2, probs = c(0.25)),
+            #Q3_CO2TCcp_Mg = quantile(TCcp_MgCO2, probs = c(0.75)),
             
             ## N2O summary
             sumN2Ored = sum(N2Ored),
@@ -1258,6 +1286,9 @@ envOutcome_CostSum <- practSumBIO %>%
             #N2OTC_Mg_med = median(TC_MgN2O, na.rm=TRUE),
             #Q1_N2OTC_Mg = quantile(TC_MgN2O, probs = c(0.25)),
             #Q3_N2OTC_Mg = quantile(TC_MgN2O, probs = c(0.75)),
+            #N2OTCcp_Mg_med = median(TCcp_MgN2O, na.rm=TRUE),
+            #Q1_N2OTCcp_Mg = quantile(TCcp_MgN2O, probs = c(0.25)),
+            #Q3_N2OTCcp_Mg = quantile(TCcp_MgN2O, probs = c(0.75)),
             
             # NO3 load summary
             sumNO3red = sum(cpNO3ldRedkg, na.rm = TRUE),
@@ -1267,105 +1298,206 @@ envOutcome_CostSum <- practSumBIO %>%
             #NO3TC_kg_med = median(TC_kgNO3, na.rm = TRUE),
             #Q1_NO3TC_kg = quantile(TC_kgNO3, probs = c(0.25), na.rm = TRUE),
             #Q3_NO3TC_kg = quantile(TC_kgNO3, probs = c(0.75), na.rm = TRUE),
+            #NO3TCcp_kg_med = median(TCcp_kgNO3, na.rm = TRUE),
+            #Q1_NO3TCcp_kg = quantile(TCcp_kgNO3, probs = c(0.25), na.rm = TRUE),
+            #Q3_NO3TCcp_kg = quantile(TCcp_kgNO3, probs = c(0.75), na.rm = TRUE),
             
             ## Sediment load summary
-            sumSEDred = sum(cpSEDldRedkg, na.rm = TRUE))
+            sumSEDred = sum(cpSEDldRedkg, na.rm = TRUE),
             #SEDred_med = median(cpSEDldRedkg, na.rm = TRUE),
             #Q1_SEDred = quantile(cpSEDldRedkg, probs = c(0.25), na.rm = TRUE),
             #Q3_SEDred = quantile(cpSEDldRedkg, probs = c(0.75), na.rm = TRUE),
             #SEDTC_kg_med = median(TC_kgSED, na.rm = TRUE),
             #Q1_SEDTC_kg = quantile(TC_kgSED, probs = c(0.25), na.rm = TRUE),
-            #Q3_SEDTC_kg = quantile(TC_kgSED, probs = c(0.75), na.rm = TRUE))#,
-            #.groups = "drop")
+            #Q3_SEDTC_kg = quantile(TC_kgSED, probs = c(0.75), na.rm = TRUE),
+            #SEDTCcp_kg_med = median(TCcp_kgSED, na.rm = TRUE),
+            #Q1_SEDTCcp_kg = quantile(TCcp_kgSED, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDTCcp_kg = quantile(TCcp_kgSED, probs = c(0.75), na.rm = TRUE),
+            .groups = "drop")
+
 write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
+
+envOutcome_FBsummary <- envOutcome_CostSum %>%
+  group_by(biomass,radial) %>%
+  summarize(sum_opArea = sum(opArea_ha),
+            opArea_med = median(opArea_ha, na.rm = TRUE),
+            Q1_opArea = quantile(opArea_ha, probs = c(0.25)),
+            Q3_opArea = quantile(opArea_ha, probs = c(0.75)),
+            n       = n(),
+            #MLRA = max(MLRA),
+            #HUC12 = max(HUC12),
+            IWAP = max(IWAP),
+            practice = list(unique(practice)),
+
+            ## Bio yield summary
+            sum_BioMg2 = sum(sum_BioMg),
+            BioMg_med = median(sum_BioMg, na.rm = TRUE),
+            Q1_BioMg = quantile(sum_BioMg, probs = c(0.25)),
+            Q3_BioMg = quantile(sum_BioMg, probs = c(0.75)),
+            
+            ## Energy potential summary
+            #sumEnergyPot2 = sum(sumEnergyPot),
+            #engPot_med = median(sumEnergyPot, na.rm = TRUE),
+            #Q1_engPot = quantile(sumEnergyPot, probs = c(0.25)),
+            #Q3_engPot = quantile(sumEnergyPot, probs = c(0.75)),
+            
+            ## Cost summary per field
+            sumDC2 = sum(sumDC),
+            sumDC_med = median(sumDC, na.rm = TRUE),
+            Q1_sumDC = quantile(sumDC, probs = c(0.25)),
+            Q3_sumDC = quantile(sumDC, probs = c(0.75)),
+            #sumOC = sum(adjOCost),
+            sumTC2 = sum(sumTC),
+            sumTC_med = median(sumTC, na.rm = TRUE),
+            Q1_sumTC = quantile(sumTC, probs = c(0.25)),
+            Q3_sumTC = quantile(sumTC, probs = c(0.75)),
+            sumDCcp2 = sum(sumDCcp),
+            sumDCcp_med = median(sumDCcp, na.rm = TRUE),
+            Q1_sumDCcp = quantile(sumDCcp, probs = c(0.25)),
+            Q3_sumDCcp = quantile(sumDCcp, probs = c(0.75)),
+            sumTCcp2 = sum(sumTCcp),
+            sumTCcp_med = median(sumTCcp, na.rm = TRUE),
+            Q1_sumTCcp = quantile(sumTCcp, probs = c(0.25)),
+            Q3_sumTCcp = quantile(sumTCcp, probs = c(0.75)),
+            
+            ## CO2 summary
+            #sumCO22 = sum(sumCO2),
+            #CO2red_med = median(sumCO2, na.rm = TRUE),
+            #Q1_CO2red = quantile(sumCO2, probs = c(0.25)),
+            #Q3_CO2red = quantile(sumCO2, probs = c(0.75)),
+            
+            ## N2O summary
+            #sumN2Ored2 = sum(sumN2Ored),
+            #N2Ored_med = median(sumN2Ored, na.rm=TRUE),
+            #Q1_N2Ored = quantile(sumN2Ored, probs = c(0.25)),
+            #Q3_N2Ored = quantile(sumN2Ored, probs = c(0.75)),
+            
+            # NO3 load summary
+            #sumNO3red2 = sum(sumNO3red, na.rm = TRUE),
+            #NO3red_med = median(sumNO3red, na.rm = TRUE),
+            #Q1_NO3red = quantile(sumNO3red, probs = c(0.25), na.rm = TRUE),
+            #Q3_NO3red = quantile(sumNO3red, probs = c(0.75), na.rm = TRUE),
+            
+            ## Sediment load summary
+            #sumSEDred2 = sum(sumSEDred, na.rm = TRUE),
+            #SEDred_med = median(sumSEDred, na.rm = TRUE),
+            #Q1_SEDred = quantile(sumSEDred, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDred = quantile(sumSEDred, probs = c(0.75), na.rm = TRUE),
+
+            .groups = "drop")
+
+write_csv(envOutcome_FBsummary,"envOutcome_RADsummary.csv")
 
 travel_envOutcomes <- full_join(envOutcome_CostSum, fbSieversRoute)
 
 travel_Sum <- travel_envOutcomes %>%
-  group_by(HUC12) %>%
-  summarize(sum_hectares = sum(opArea_ha),
-            sum_bioYield = sum(sumbioYield),
-            sum_enPot = sum(sumEnergyPot),
-            mean_time = mean(Total_TruckTravelTime),
-            mean_dist = mean(Total_Kilometers))
+  #group_by(radial) %>%
+  group_by(FBndID, radial) %>%
+  drop_na(Total_Kilometers) %>%
+  summarize(AOI = "supplyshed",
+            Ctruck = sum_BioMg*(2*Total_Kilometers)*0.265, # $ per field. trucking cost. 2026 ISU Custom Rate survey. Transportation coefficient = "haul round bales by truck or trailer per bale per mile", assuming 0.68 Mg of hay in a bale (Hart etal. 2015).
+            Chand = sum_BioMg*4.7794, # $ per field. 2026 ISU Custom Rate survey. Loading/unloading = "moving large round bales to storage per bale", assuming 0.68 Mg of hay in a bale. Coefficients are assumed to be fixed cost. 
+            Ctotal = Ctruck + Chand, # trucking + handling costs per field.
+            rnd_dist = 2*Total_Kilometers,
+            Ctotal_Mg = (Ctruck + Chand) / sum_BioMg, # transportation cost per Mg of biomass harvested from a field
+            Ctotal_Mg_km = Ctotal / sum_BioMg / rnd_dist,
+            Cdeliv = Ctotal + sumDC, # cost per field for biomass
+            Cdeliv_Mg = Cdeliv / sum_BioMg, # production + transportation cost per Mg delivered from a field
+            Cdeliv_Mg_km = Cdeliv / sum_BioMg / rnd_dist,
+            Ccpdeliv = Ctotal + sumDCcp, # cost per field for biomass and structural components
+            Ccpdeliv_Mg = Ccpdeliv / sum_BioMg,
+            Ccpdeliv_Mg_km = Ccpdeliv / sum_BioMg / rnd_dist,
+            #sum_hectares = sum(opArea_ha),
+            #sum_bioYield = sum(sumbioYield),
+            #sum_enPot = sum(sumEnergyPot),
+            #dist_med = median(Total_Kilometers, na.rm = TRUE),
+            #Q1_SEDred = quantile(Total_Kilometers, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDred = quantile(Total_Kilometers, probs = c(0.75), na.rm = TRUE),
+            #dist_mean = mean((2*Total_Kilometers), na.rm = TRUE),
+            #dist_sd = sd((2*Total_Kilometers), na.rm = TRUE),
+            #dist_lb = (dist_mean-dist_sd),
+            #dist_ub = (dist_mean+dist_sd), 
+            
+            fuel_cost = median(fuel_cost),
+            lbr_cost = median(lbr_cost),
+            trans_cost = median(trans_cost))
+            #dist_min = min(Total_Kilometers, na.rm = TRUE),
+            #dist_max = max(Total_Kilometers, na.rm = TRUE),
+            #time_med = median(Total_TruckTravelTime, na.rm = TRUE),
+            #Q1_time = quantile(Total_TruckTravelTime, probs = c(0.25), na.rm = TRUE),
+            #Q3_time = quantile(Total_TruckTravelTime, probs = c(0.75), na.rm = TRUE))
+            #fuelCost_mean = mean(fuel_cost, na.rm = TRUE),
+            #fuelCost_sd = sd(fuel_cost, na.rm = TRUE),
+            #fuelCost_lb = (fuelCost_mean-fuelCost_sd),
+            #fuelCost_ub = (fuelCost_mean+fuelCost_sd),
+            #fuelCost_min = min(trk_cost, na.rm = TRUE),
+            #fuelCost_max = max(trk_cost, na.rm = TRUE),
+            #lbrCost_mean = mean(lbr_cost, na.rm = TRUE),
+            #lbrCost_sd = sd(lbr_cost, na.rm = TRUE),
+            #lbrCost_lb = (lbrCost_mean-lbrCost_sd),
+            #lbrCost_ub = (lbrCost_mean+lbrCost_sd),
+            #lbrCost_min = min(lbr_cost, na.rm = TRUE),
+            #lbrCost_max = max(lbr_cost, na.rm = TRUE),
+            #transCost_mean = mean(trans_cost, na.rm = TRUE),
+            #transCost_sd = sd(trans_cost, na.rm = TRUE),
+            #transCost_lb = (transCost_mean-transCost_sd),
+           #transCost_ub = (transCost_mean+transCost_sd))
+            #transCost_min = min(trans_cost, na.rm = TRUE),
+            #transCost_max = max(trans_cost, na.rm = TRUE))
 
-write_csv(travel_Sum,"bioHUC12.csv")
+Ctravel_radial <- travel_Sum %>%
+  #group_by(radial) %>%
+  group_by(AOI) %>%
+  summarize(mean_Ctruck = mean(Ctruck, na.rm = TRUE),
+            #sd_Ctruck = sd(Ctruck),
+            med_Ctruck = median(Ctruck, na.rm = TRUE),
+            Q1_Ctruck = quantile(Ctruck, probs = c(0.25), na.rm = TRUE),
+            Q3_Ctruck = quantile(Ctruck, probs = c(0.75), na.rm = TRUE),
+            mean_Chand = mean(Chand, na.rm = TRUE),
+            sum_Chand = sum(Chand, na.rm = TRUE),
+            #sd_Chand = sd(Chand),
+            med_Chand = median(Chand, na.rm = TRUE),
+            Q1_Chand = quantile(Chand, probs = c(0.25), na.rm = TRUE),
+            Q3_Chand = quantile(Chand, probs = c(0.75), na.rm = TRUE),
+            mean_Ctotal = mean(Ctotal, na.rm = TRUE),
+            sum_Ctotal = sum(Ctotal, na.rm = TRUE),
+            sd_Ctotal = sd(Ctotal, na.rm = TRUE),
+            med_Ctotal = median(Ctotal, na.rm = TRUE),
+            Q1_Ctotal = quantile(Ctotal, probs = c(0.25), na.rm = TRUE),
+            Q3_Ctotal = quantile(Ctotal, probs = c(0.75), na.rm = TRUE),
+            mean_dist = mean(rnd_dist, na.rm = TRUE),
+            #sd_dist = sd(rnd_dist),
+            med_dist = median(rnd_dist, na.rm = TRUE),
+            Q1_dist = quantile(rnd_dist, probs = c(0.25), na.rm = TRUE),
+            Q3_dist = quantile(rnd_dist, probs = c(0.75), na.rm = TRUE),
+            mean_Ctotal_Mg = mean(Ctotal_Mg, na.rm = TRUE),
+            #sd_Ctotal_Mg = sd(Ctotal_Mg),
+            med_Ctotal_Mg = median(Ctotal_Mg, na.rm = TRUE),
+            Q1_Ctotal_Mg = quantile(Ctotal_Mg, probs = c(0.25), na.rm = TRUE),
+            Q3_Ctotal_Mg = quantile(Ctotal_Mg, probs = c(0.75), na.rm = TRUE),
+            mean_Ctotal_Mg_km = mean(Ctotal_Mg_km, na.rm = TRUE),
+            #sd_Ctotal_Mg = sd(Ctotal_Mg),
+            med_Ctotal_Mg_km = median(Ctotal_Mg_km, na.rm = TRUE),
+            Q1_Ctotal_Mg_km = quantile(Ctotal_Mg_km, probs = c(0.25), na.rm = TRUE),
+            Q3_Ctotal_Mg_km = quantile(Ctotal_Mg_km, probs = c(0.75), na.rm = TRUE),
+            mean_Cdeliv = mean(Cdeliv, na.rm = TRUE),
+            sum_Cdeliv = sum(Cdeliv, na.rm = TRUE),
+            #sd_Cdeliv = sd(Cdeliv),
+            med_Cdeliv = median(Cdeliv, na.rm = TRUE),
+            Q1_Cdeliv = quantile(Cdeliv, probs = c(0.25), na.rm = TRUE),
+            Q3_Cdeliv = quantile(Cdeliv, probs = c(0.75), na.rm = TRUE),
+            mean_Cdeliv_Mg = mean(Cdeliv_Mg, na.rm = TRUE),
+            #sd_Cdeliv_Mg =sd(Cdeliv_Mg),
+            med_Cdeliv_Mg = median(Cdeliv_Mg, na.rm = TRUE),
+            Q1_Cdeliv_Mg = quantile(Cdeliv_Mg, probs = c(0.25), na.rm = TRUE),
+            Q3_Cdeliv_Mg = quantile(Cdeliv_Mg, probs = c(0.75), na.rm = TRUE),
+            mean_Cdeliv_Mg_km = mean(Cdeliv_Mg_km, na.rm = TRUE),
+            #sd_Cdeliv_Mg_km = sd(Cdeliv_Mg_km)
+            med_Cdeliv_Mg_km = median(Cdeliv_Mg_km, na.rm = TRUE),
+            Q1_Cdeliv_Mg_km = quantile(Cdeliv_Mg_km, probs = c(0.25), na.rm = TRUE),
+            Q3_Cdeliv_Mg_km = quantile(Cdeliv_Mg_km, probs = c(0.75), na.rm = TRUE))
 
-## QA/QC for transportation routes to ensure number of routes and locations match
-## use spatial join to add FBndID to STB and NRW
-# travelNA <- routes %>% filter(is.na(Total_TruckTravelTime))
-# removeRoute <- bio_travelNO3 %>% filter(is.na(IWAP))
-# routes <- bio_travelNO3 %>% drop_na(IWAP)
-# write_csv(routes,"finalRoutes.csv")
-# write_csv(travelNA, "missingRoutes.csv")
+write_csv(Ctravel_radial,"travelcosts_byRad.csv")
 
-envOutcome_CostSum <- practSumBIO %>%
-  group_by(HUC12) %>%
-  summarize(opArea_ha = sum(opArea_ha),
-            n       = n(),
-            MLRA = max(MLRA),
-            HUC12 = max(HUC12),
-            sumbioYield = sum(bioYield_Mg),
-            sumEnergyPot = sum(energyPot),
-            sumDC = sum(DirectCost),
-            sumOC = sum(adjOCost),
-            sumTC = sum(TotalCost),
-            sumCO2red = sum(CO2red),
-            sumN2ored = sum(N2Ored),
-            sumcpNO3LoadReduced = sum(cpNO3ldRedkg, na.rm = TRUE)/1000,
-            sumcpSEDLoadReduced = sum(cpSEDldRedkg, na.rm = TRUE)/1000)
-            #.groups = "drop")
-
-envOutcome_BioSum <- practSumBIO %>%
-  group_by(HUC12,biomass) %>%
-  summarize(opArea_ha = sum(opArea_ha),
-            n       = n(),
-            MLRA = max(MLRA),
-            sumbioYield = sum(bioYield_Mg),
-            sumEnergyPot = sum(energyPot))
-            #.groups = "drop")
-
-envOutcome_WildSum <- practSumBIO %>%
-  group_by(HUC12,IWAP) %>%
-  summarize(opArea_ha = sum(opArea_ha),
-            n       = n())
-            #.groups = "drop")
-
-
-write_csv(envOutcome_CostSum,"../data/tidy/envOutcome_CostSumHUC12.csv")
-write_csv(envOutcome_BioSum,"../data/tidy/envOutcome_BioSumHUC12.csv")
-write_csv(envOutcome_WildSum,"../data/tidy/envOutcome_WildSumHUC12.csv")
-
-GHGsum <- practSumBIO %>%
-  group_by(MLRA) %>%
-  summarize(opArea_ha = sum(opArea_ha),
-            n       = n(),
-            MLRA = max(MLRA),
-            sumCO2red = sum(CO2red),
-            minCO2Red = min(CO2red, na.rm=TRUE),
-            maxCO2Red = max(CO2red, na.rm=TRUE),
-            sumN2Ored = sum(N2Ored),
-            minN2ORed = min(N2Ored, na.rm=TRUE),
-            maxN2ORed = max(N2Ored, na.rm=TRUE),
-            sumcpNO3LoadReduced = sum(cpNO3ldRedkg, na.rm = TRUE),
-            minNO3Red = min(cpNO3ldRedkg, na.rm=TRUE),
-            maxNO3Red = max(cpNO3ldRedkg, na.rm=TRUE),
-            sumcpSEDLoadReduced = sum(cpSEDldRedkg, na.rm = TRUE),
-            minSEDRed = min(cpSEDldRedkg, na.rm = TRUE),
-            maxSEDRed = max(cpSEDldRedkg, na.rm=TRUE),
-            IWAP = max(IWAP),
-            .groups = "drop")
-
-practIWAP_Sum <- practSumBIO %>%
-  filter(IWAP == 1) %>%
-  group_by(HUC12) %>%
-  summarize(n       = n(),
-            hectares = sum(opArea_ha),
-            mean_ha = mean(opArea_ha),
-            sd = sd(opArea_ha),
-            se=(sd/sqrt(n)),
-            min_ha = min(opArea_ha),
-            max_ha = max(opArea_ha),
-            .groups = "drop")
 
 ```
