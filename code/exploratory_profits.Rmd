@@ -75,13 +75,14 @@ profit_HUC12 <- profit %>%
          n       = n(),
          avgProfit_ha = mean(AvgProfit*0.405),
          stdProfit = sd(AvgProfit*0.405),
+         medProfit_ha = median(AvgProfit*0.405),
          huc12_wtd = (subarea_ha / HUC12_ha)*100) %>%
   distinct()
 
 unprofit <- profit_HUC12 %>%
   filter(unprofit == "unprofitable") %>%
-  arrange(desc(huc12_wtd)) %>%
-  slice(1:10)
+  arrange(desc(huc12_wtd)) #%>%
+  #slice(1:10)
   
 
 mxProfit = profit_MLRA %>%
@@ -112,7 +113,7 @@ mhProfit
 ```
 
 ```{r mean_data, dependson = "create_soilpad"}
-profit_yield <- merge(AvgProfit, AvgYield, by="subfieldID")
+profit_yield <- full_join(AvgProfit, AvgYield)
 profit_yield$HUC12 <- profit_yield$HUC12.x
 profit_yield2 <- merge(profit_yield, HUC12, by="HUC12")
 

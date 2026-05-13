@@ -16,10 +16,6 @@ knitr::opts_chunk$set(echo = TRUE,
                       #fig.height = 12)
 
 library("tidyverse"); theme_set(theme_bw())
-library("lme4")
-library("lmerTest")
-library("emmeans")
-library("ggResidpanel")
 
 options(scipen = 999, width = 200)
 
@@ -38,14 +34,21 @@ CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv4.csv") %>%
          biomass = "prairie",
          adjOCost = OpportunityCost,
          DirectCost_CP = DirectCost,
+         TotalCost_CP = DirectCost_CP + OpportunityCost,
          opArea_ha = opAcres*0.404686, ## convert ac to ha
+         patch_ha = 0,
+         lin_ha = opArea_ha,
+         rye_ha = 0,
          cropArea_ha = SUM_cropAcres*0.404686, ## convert ac to ha
+         DC_haWH = DirectCost/opArea_ha,
+         DCcp_haWH = DirectCost_CP/opArea_ha,
+         TC_haWH = TotalCost/opArea_ha,
+         TCcp_haWH = TotalCost_CP/opArea_ha,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = SUM_cpSEDloadlbs*0.453592, ## convert lb to kg
          cpSEDldRedkg = SUM_cpSEDLoadReduced*907.18, ## convert US tons to kg
-         TotalCost_CP = DirectCost_CP + OpportunityCost,
          DC_kgNO3 = DirectCost / cpNO3ldRedkg,
          DCcp_kgNO3 = DirectCost_CP / cpNO3ldRedkg,
          TC_kgNO3 = TotalCost / cpNO3ldRedkg,
@@ -70,12 +73,15 @@ CBS_BIOraw <- read_csv("../data/raw/CBS_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
 NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv4.csv") %>%
@@ -85,14 +91,21 @@ NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv4.csv") %>%
          INRS = "Treatment wetlands",
          biomass = "prairie",
          adjOCost = OpportunityCost,
+         TotalCost_CP = DirectCost_CP + OpportunityCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
+         patch_ha = 0,
+         lin_ha = 0,
+         rye_ha = 0,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cropArea_ha = SUM_cropAcres*0.404686, # convert ac to ha
+         DC_haWH = DirectCost/opArea_ha,
+         DCcp_haWH = DirectCost_CP/opArea_ha,
+         TC_haWH = TotalCost/opArea_ha,
+         TCcp_haWH = TotalCost_CP/opArea_ha,
          cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = SUM_cpSEDloadlbs*0.453592, ## convert lb to kg
          cpSEDldRedkg = SUM_cpSEDLoadReduced*907.18, ## convert US tons to kg
-         TotalCost_CP = DirectCost_CP + OpportunityCost,
          DC_kgNO3 = DirectCost / cpNO3ldRedkg,
          DCcp_kgNO3 = DirectCost_CP / cpNO3ldRedkg,
          TC_kgNO3 = TotalCost / cpNO3ldRedkg,
@@ -117,12 +130,15 @@ NRW_BIOraw <- read_csv("../data/raw/NRW_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = field acres
 PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv4.csv") %>%
@@ -134,13 +150,20 @@ PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv4.csv") %>%
          DirectCost_CP = DirectCost,
          adjOCost = OpportunityCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
+         patch_ha = opArea_ha,
+         lin_ha = 0,
+         rye_ha = 0,
+         TotalCost_CP = DirectCost_CP + OpportunityCost,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         DC_haWH = DirectCost/opArea_ha,
+         DCcp_haWH = DirectCost_CP/opArea_ha,
+         TC_haWH = TotalCost/opArea_ha,
+         TCcp_haWH = TotalCost_CP/opArea_ha,
          cpNO3ldkg = cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = cpSEDloadlbs*0.453592, ## convert lb to kg
          cpSEDldRedkg = cpSEDLoadReduced*907.18, ## convert US tons to kg
-         TotalCost_CP = DirectCost_CP + OpportunityCost,
          DC_kgNO3 = DirectCost / cpNO3ldRedkg,
          DCcp_kgNO3 = DirectCost_CP / cpNO3ldRedkg,
          TC_kgNO3 = TotalCost / cpNO3ldRedkg,
@@ -165,12 +188,15 @@ PCP_BIOraw <- read_csv("../data/raw/PCP_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 ## crop acres = all cropped acres within the drainage area of the practice.
 STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv4.csv") %>%
@@ -183,8 +209,15 @@ STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv4.csv") %>%
          TotalCost = adjOCost + DirectCost,
          TotalCost_CP = DirectCost_CP + adjOCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
+         patch_ha = 0,
+         lin_ha = opArea_ha,
+         rye_ha = 0,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cropArea_ha = SUM_cropAcres*0.404686, # convert ac to ha
+         DC_haWH = DirectCost/opArea_ha,
+         DCcp_haWH = DirectCost_CP/opArea_ha,
+         TC_haWH = TotalCost/opArea_ha,
+         TCcp_haWH = TotalCost_CP/opArea_ha,
          cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = SUM_cpSEDloadlbs*0.453592, ## convert lb to kg
@@ -213,12 +246,15 @@ STB_BIOraw <- read_csv("../data/raw/STB_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv4.csv") %>%
   mutate(practice = "RIB",
@@ -230,8 +266,15 @@ RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv4.csv") %>%
          TotalCost = adjOCost + DirectCost,
          TotalCost_CP = DirectCost_CP + adjOCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
+         patch_ha = 0,
+         lin_ha = opArea_ha,
+         rye_ha = 0,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cropArea_ha = SUM_cropAcres*0.404686, # convert ac to ha
+         DC_haWH = DirectCost/opArea_ha,
+         DCcp_haWH = DirectCost_CP/opArea_ha,
+         TC_haWH = TotalCost/opArea_ha,
+         TCcp_haWH = TotalCost_CP/opArea_ha,
          cpNO3ldkg = SUM_cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = SUM_cpNO3LoadReduced*0.453592, ## convert lb to kg
          cpSEDldkg = SUM_cpSEDloadlbs*0.453592, ## convert lb to kg
@@ -260,12 +303,15 @@ RIB_BIOraw <- read_csv("../data/raw/RIB_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 
 ## crop acres = field acres
@@ -278,8 +324,15 @@ WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIOv4.csv") %>%
          DirectCost_CP = DirectCost,
          adjOCost = OpportunityCost,
          opArea_ha = opAcres*0.404686, # convert ac to ha
+         patch_ha = 0,
+         lin_ha = 0,
+         rye_ha = opArea_ha,
          bioYield_Mg = bioYield * 0.9072, ## convert tons to Mg
          cropArea_ha = cropAcres*0.404686, # convert ac to ha
+         DC_haWH = 0,
+         DCcp_haWH = 0,
+         TC_haWH = 0,
+         TCcp_haWH = 0,
          TotalCost = DirectCost,
          cpNO3ldkg = cpNO3load*0.453592, ## convert lb to kg
          cpNO3ldRedkg = cpNO3LoadReduced*0.453592, ## convert lb to kg
@@ -310,12 +363,15 @@ WCR_BIOraw <- read_csv("../data/raw/WCR_practiceSummary_BIOv4.csv") %>%
          DCcp_enPot = DirectCost_CP / energyPot,
          TC_enPot = TotalCost / energyPot,
          TCcp_enPot = TotalCost_CP / energyPot) %>%
-  select(MLRA,radial,HUC12,pID,practice,biomass,opArea_ha,cropArea_ha,IWAP,INRS,DirectCost,DirectCost_CP,OpportunityCost,
-         adjOCost,TotalCost,TotalCost_CP,FBndID,biomass,bioYield_Mg,energyPot,CO2red,N2Ored,
-         cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
-         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,TCcp_kgSED,
-         DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,TC_enPot,TCcp_enPot,
-         DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
+  select(MLRA,radial,HUC12,FBndID,pID,practice,biomass,opArea_ha,patch_ha,
+         lin_ha,rye_ha,cropArea_ha,IWAP,
+         INRS,DirectCost,DirectCost_CP,OpportunityCost,adjOCost,TotalCost,
+         TotalCost_CP,DC_haWH,DCcp_haWH,TC_haWH,TCcp_haWH,biomass,bioYield_Mg,
+         energyPot,CO2red,N2Ored,cpNO3ldkg,cpNO3ldRedkg,cpSEDldkg,cpSEDldRedkg,
+         DC_kgNO3,DCcp_kgNO3,TC_kgNO3,TCcp_kgNO3,DC_kgSED,DCcp_kgSED,TC_kgSED,
+         TCcp_kgSED,DC_MgBio,DCcp_MgBio,TC_MgBio,TCcp_MgBio,DC_enPot,DCcp_enPot,
+         TC_enPot,TCcp_enPot,DC_MgCO2,DCcp_MgCO2,TC_MgCO2,TCcp_MgCO2,DC_MgN2O,
+         DCcp_MgN2O,TC_MgN2O,TCcp_MgN2O)
 
 practSumBIO_df <- rbind(CBS_BIOraw, NRW_BIOraw, PCP_BIOraw, STB_BIOraw, RIB_BIOraw, WCR_BIOraw)
 practSumBIO <- within(practSumBIO_df, MLRA[MLRA == 108] <- "108c")
@@ -434,9 +490,11 @@ IWAPHUC12_counts <- practSumBIO %>%
 ```{r mean_data, dependson = "create_soilpad"}
 ## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
 practMLRA_CostSumBIOno3 <- practSumBIO %>% drop_na(cpNO3ldkg) %>%
-  filter(cpSEDldRedkg >= 0) %>%
-  group_by(MLRA, INRS) %>%
-  summarize(sumDC = sum(DirectCost),
+  #filter(cpSEDldRedkg >= 0) %>%
+  group_by(biomass) %>%
+  summarize(#OC_ha = sum(DirectCost/opArea_ha),
+            mean_OC_ha = mean(DirectCost/opArea_ha),
+            sumDC = sum(DirectCost),
             sumOC = sum(adjOCost),
             sumTC = sum(TotalCost),
             meanDC  = round(mean(DirectCost, na.rm = TRUE),0),

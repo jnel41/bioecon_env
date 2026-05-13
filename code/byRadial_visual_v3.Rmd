@@ -1,0 +1,245 @@
+---
+title: "Supplyshed Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+library("viridis")
+
+library("factoextra")
+library("cluster")
+library("ggrepel")
+library("fmsb")
+
+
+options(scipen = 999, width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+
+Look at bioyield and transportation costs
+```{r mean_data, dependson = "create_soilpad"}
+npv_df <- read_csv("../data/raw/biomass_npv.csv") %>%
+  mutate(yield = round((yield * 2.247),1),
+         price = round((price * 1.1023),0),
+         npv = round((npv * 1.1023),0)) %>%
+  select(biomass,yield,costs,price,transport,npv)
+  
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+#max_abs_npv <- max(abs(npv_df$npv), na.rm = TRUE)
+npv_df %>%
+  count(biomass, yield, price, transport) 
+
+```
+
+
+```{r mean_data, dependson = "create_soilpad"}
+rye_p <- npv_df %>%
+  filter(biomass == "cereal rye" & costs == "delivered cost") %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(transport, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Cereal Rye Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+print(rye_p)
+
+prairie_p2 <- npv_df %>%
+  filter(biomass == "prairie" & costs == "direct cost") %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(transport, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Prairie Biomass Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance (no OC)"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+print(prairie_p)
+print(prairie_p2)
+
+
+
+```
+
+
+```{r mean_data, dependson = "create_soilpad"}
+beCR_df <- read_csv("../data/raw/breakeven_prices_rye.csv") %>%
+  filter(discount_rate == 0.06) %>%
+  mutate(yield = (yield * 2.247),
+         breakeven_price = round((breakeven_price * 1.1023),0),
+         biomass = "cereal rye") %>%
+  select(radius,discount_rate,biomass,yield,breakeven_price)
+
+bePoc_df <- read_csv("../data/raw/breakeven_prices_oc_prairie.csv") %>%
+  filter(discount_rate == 0.06) %>%
+  mutate(yield = (yield * 2.247),
+         breakeven_price = round((breakeven_price * 1.1023),0),
+         biomass = "prairie") %>%
+  select(radius,discount_rate,biomass,yield,breakeven_price)
+
+beP_df <- read_csv("../data/raw/breakeven_prices_prairie.csv") %>%
+  filter(discount_rate == 0.06) %>%
+  mutate(yield = (yield * 2.247),
+         breakeven_price = round((breakeven_price * 1.1023),0),
+         biomass = "prairie") %>%
+  select(radius,biomass,yield,breakeven_price)
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+write.csv(huc12_ext, "../data/tidy/huc12ext_clusters.csv", row.names = FALSE)
+
+anova_result <- aov(co2_ha ~ cluster, data = huc12_df)
+summary(anova_result)
+
+```
+
+## Create efficiency-based scenarios (above is extent)
+```{r mean_data, dependson = "create_soilpad"}
+huc12_eff <- huc12_df
+
+huc12_eff <- huc12_eff %>%
+  mutate(
+    no3_eff = no3_ha / per_treated,
+    sed_eff = sed_ha / per_treated,
+    co2_eff = co2_ha / per_treated,
+    n2o_eff = n20_ha / per_treated,
+    wh_eff = sumprairie / per_treated,
+    bio_eff = bio_Mg_ha / per_treated,
+    dc_eff = dc_ha / per_treated,
+    oc_eff = oc_ha / per_treated,
+    cost_eff = tc_ha / per_treated # cost per treated area
+  ) %>%
+  drop_na()
+
+
+vars_eff <- huc12_eff %>%
+  select(no3_eff,sed_eff,co2_eff,n2o_eff,wh_eff,bio_eff,oc_eff,cost_eff) %>%
+  drop_na()
+
+vars_eff_scaled <- scale(vars_eff)
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+fviz_nbclust(vars_eff_scaled, kmeans, method = "wss")
+fviz_nbclust(vars_eff_scaled, kmeans, method = "silhouette")
+
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+km_eff <- kmeans(vars_eff_scaled, centers = 3, nstart = 25)
+
+huc12_eff$Cluster <- as.factor(km_eff$cluster)
+
+huc12_eff_summary <- huc12_eff %>%
+  group_by(Cluster) %>%
+  summarise(across(c(no3_eff,sed_eff,co2_eff,n2o_eff,wh_eff,bio_eff,oc_eff,cost_eff),
+                   mean, na.rm = TRUE))
+
+print(huc12_eff_summary)
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+huc12_eff <- huc12_eff %>%
+  mutate(Cluster_Label = case_when(
+    Cluster == "1" ~ "Balanaced / LC", # low opportunity, low cost
+    Cluster == "2" ~ "WQ / MC", # extensive transformation, high cost
+    Cluster == "3" ~ "HO / HC" # targeted high efficiency, medium cost
+  ))
+
+head(huc12_eff)
+```
+
+```{r mean_data, dependson = "create_soilpad"}
+ggplot(huc12_eff, aes(x = cost_eff,
+                     y = no3_eff,
+                     color = Cluster_Label)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(x = "Total Biomass Cost ($2026)",
+       y = "N Reduction Efficiency (kg/ha)",
+       color = "Cluster") +
+  geom_text_repel(aes(label = HUC12),
+                  size = 3,
+                  max.overlaps = 10)
+
+```
+
+
+```{r mean_data, dependson = "create_soilpad"}
+fviz_cluster(km_eff,
+             data = vars_eff_scaled,
+             geom = "point",
+             ellipse.type = "convex",
+             ggtheme = theme_minimal())
+
+```
+
+
+```{r mean_data, dependson = "create_soilpad"}
+huc12_eff %>%
+  pivot_longer(cols = c(no3_eff,sed_eff,co2_eff,n2o_eff,wh_eff,bio_eff,oc_eff,cost_eff),
+               names_to = "Metric",
+               values_to = "Value") %>%
+  ggplot(aes(x = Cluster,
+             y = Value,
+             fill = Cluster)) +
+  geom_boxplot() +
+  facet_wrap(~Metric, scales = "free_y", ncol=4) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(hjust = 1)) +
+  scale_fill_manual(values = c('#C6A741','#F2E3BF','#F9ED35'))
+
+write.csv(huc12_eff, "../data/tidy/huc12eff_clusters.csv", row.names = FALSE)
+
+```
