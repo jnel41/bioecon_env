@@ -32,11 +32,12 @@ dir.create("fig", showWarnings = FALSE)
 
 Look at bioyield and transportation costs
 ```{r mean_data, dependson = "create_soilpad"}
-npv_df <- read_csv("../data/raw/biomass_npv.csv") %>%
+npv_df <- read_csv("../data/raw/biomass_npv_v2.csv") %>%
   mutate(yield = round((yield * 2.247),1),
          price = round((price * 1.1023),0),
          npv = round((npv * 1.1023),0)) %>%
-  select(biomass,yield,costs,price,transport,npv)
+  select(biomass,yield,costs,price,transport,npv) #%>%
+  #filter(yield != 7.0 & yield != 11.0)
   
 ```
 
@@ -50,7 +51,8 @@ npv_df %>%
 
 ```{r mean_data, dependson = "create_soilpad"}
 rye_p <- npv_df %>%
-  filter(biomass == "cereal rye" & costs == "delivered cost") %>%
+  #filter(biomass == "cereal rye" & costs == "delivered cost") %>%
+  filter(biomass == "cereal rye") %>%
   ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
   geom_tile() +
   geom_text(aes(label = round(npv, 0)),size = 3) +
@@ -75,10 +77,36 @@ rye_p <- npv_df %>%
   theme_minimal() +
   theme(panel.grid = element_blank())
 
-print(rye_p)
+#print(rye_p)
+
+prairie_p <- npv_df %>%
+  filter(biomass == "prairie" & costs == "total cost" & yield != 11.0) %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(transport, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Prairie Biomass Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
 
 prairie_p2 <- npv_df %>%
-  filter(biomass == "prairie" & costs == "direct cost") %>%
+  filter(biomass == "prairie" & costs == "direct cost"& yield != 11.0) %>%
   ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
   geom_tile() +
   geom_text(aes(label = round(npv, 0)),size = 3) +
@@ -103,6 +131,7 @@ prairie_p2 <- npv_df %>%
   theme_minimal() +
   theme(panel.grid = element_blank())
 
+print(rye_p)
 print(prairie_p)
 print(prairie_p2)
 
