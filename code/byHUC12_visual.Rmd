@@ -37,6 +37,7 @@ wsArea <- read_csv("../data/raw/HUC12_list.csv") %>%
          HUC12 = str_pad(huc12, width = 12, pad = "0")) %>%
   select(area_ha, HUC12)
 
+
 ## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
 envOutcome_CostSum <- practSumBIO %>%
   #group_by(practice) %>%
@@ -279,10 +280,10 @@ Ctravel_HUC12 <- travel_HUC12Sum %>%
             sumN2Ored = sum(N2Ored),
 
             # NO3 load summary
-            sumNO3red = sum(NO3red, na.rm = TRUE),
-
+            sumNO3red = sum(NO3red, na.rm = TRUE)*0.001,
+            
             ## Sediment load summary
-            sumSEDred = sum(SEDred, na.rm = TRUE),
+            sumSEDred = sum(SEDred, na.rm = TRUE)*0.001,
             
             mean_dist = mean(rnd_dist, na.rm = TRUE),
             #sd_dist = sd(rnd_dist),
@@ -345,7 +346,7 @@ huc12_summary <- wsArea %>%
 
 huc12_df <- huc12_summary %>%
   #drop_na() %>%
-  mutate(per_treated = sumOPha / area_ha,
+  mutate(per_treated = (sumOPha / area_ha)*100,
          #per_unstable = sum_UNSTha / area_ha,
          #per_unprofit = sum_UNPha / area_ha,
          per_patch = sumpatch / area_ha,
@@ -372,6 +373,29 @@ huc12_df <- huc12_summary %>%
          #area_TCcp = sumOPha / sumTCcp
          )
          
+
+envOutcome_CostSum %>%
+  group_by(FBndID) %>%
+  filter(sum_wh_ha > 49 ) %>% ## summarize core habitat great than 50. need a citation. summarize linear less than 50 ha. do this for all prairie practices. 
+  summarize(n = n(),
+            mean_ha = mean(sum_wh_ha),
+            med_ha = median(sum_wh_ha),
+            Q1_ha = quantile(sum_wh_ha, probs = c(0.25), na.rm = TRUE),
+            Q3_ha = quantile(sum_wh_ha, probs = c(0.75), na.rm = TRUE),
+            min_ha = min(sum_wh_ha),
+            max_ha = max(sum_wh_ha),
+            sum_ha = sum(sum_wh_ha))
+
+envOutcome_CostSum %>%
+  filter(sum_wh_ha < 50) %>%
+  summarize(n = n(),
+            mean_ha = mean(sum_wh_ha),
+            med_ha = median(sum_wh_ha),
+            Q1_ha = quantile(sum_wh_ha, probs = c(0.25), na.rm = TRUE),
+            Q3_ha = quantile(sum_wh_ha, probs = c(0.75), na.rm = TRUE),
+            min_ha = min(sum_wh_ha),
+            max_ha = max(opArea_ha),
+            sum_ha = sum(sum_wh_ha))
 
 ```
 
@@ -607,3 +631,4 @@ huc12eff_unst <- huc12_eff %>%
 
 
 ```
+
