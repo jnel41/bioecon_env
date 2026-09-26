@@ -38,7 +38,28 @@ npv_df <- read_csv("../data/raw/biomass_npv_v2.csv") %>%
          npv = round((npv * 1.1023),0)) %>%
   select(biomass,yield,costs,price,transport,npv) #%>%
   #filter(yield != 7.0 & yield != 11.0)
-  
+
+npv_prOC <- read_csv("../data/raw/full_dcf_oc_prairie_results.csv") %>%
+  mutate(yield = round((yield * 2.247),1),
+         price = round((price * 1.1023),0),
+         npv = round((annualized_npv * 1.1023),0)) %>%
+  select(yield,price,radius,discount_rate,transport_cost,npv) #%>%
+  #filter(yield != 7.0 & yield != 11.0)
+
+npv_pr <- read_csv("../data/raw/full_dcf_prairie_results.csv") %>%
+  mutate(yield = round((yield * 2.247),1),
+         price = round((price * 1.1023),0),
+         npv = round((annualized_npv * 1.1023),0)) %>%
+  select(yield,price,radius,discount_rate,transport_cost,npv) #%>%
+  #filter(yield != 7.0 & yield != 11.0)
+
+npv_cr <- read_csv("../data/raw/full_dcf_rye_results.csv") %>%
+  mutate(yield = round((yield * 2.247),1),
+         price = round((price * 1.1023),0),
+         npv = round((annualized_npv * 1.1023),0)) %>%
+  select(yield,price,radius,discount_rate,transport_cost,npv) #%>%
+  #filter(yield != 7.0 & yield != 11.0)
+
 ```
 
 ```{r mean_data, dependson = "create_soilpad"}
@@ -47,7 +68,6 @@ npv_df %>%
   count(biomass, yield, price, transport) 
 
 ```
-
 
 ```{r mean_data, dependson = "create_soilpad"}
 rye_p <- npv_df %>%
@@ -139,31 +159,159 @@ print(prairie_p2)
 
 ```
 
+```{r mean_data, dependson = "create_soilpad"}
+prOC_p <- npv_pr %>%
+  filter(discount_rate == "0.09") %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(radius, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Prairie Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+#print(rye_p)
+
+prairie_p <- npv_df %>%
+  filter(biomass == "prairie" & costs == "total cost" & yield != 11.0) %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(transport, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Prairie Biomass Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+cr_p <- npv_cr %>%
+  filter(discount_rate == "0.09") %>%
+  ggplot(aes(x = factor(yield), y = factor(price), fill = npv)) +
+  geom_tile() +
+  geom_text(aes(label = round(npv, 0)),size = 3) +
+  facet_wrap(~ factor(radius, c("Farmgate","8 km","16 km","24 km","32 km")), nrow = 1,
+             labeller = labeller(transport = function(x) {
+               paste0(x)
+             })) +
+  
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    name = "NPV ($)"
+  ) +
+  
+  labs(x = "Cereal Rye Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "NPV Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+print(prOC_p)
+print(prairie_p)
+print(cr_p)
+
+
+
+```
 
 ```{r mean_data, dependson = "create_soilpad"}
 beCR_df <- read_csv("../data/raw/breakeven_prices_rye.csv") %>%
-  filter(discount_rate == 0.06) %>%
-  mutate(yield = (yield * 2.247),
+  #filter(discount_rate == 0.06) %>%
+  mutate(yield = round((yield * 2.247),1),
          breakeven_price = round((breakeven_price * 1.1023),0),
          biomass = "cereal rye") %>%
   select(radius,discount_rate,biomass,yield,breakeven_price)
 
 bePoc_df <- read_csv("../data/raw/breakeven_prices_oc_prairie.csv") %>%
-  filter(discount_rate == 0.06) %>%
-  mutate(yield = (yield * 2.247),
+  #filter(discount_rate == 0.06) %>%
+  mutate(yield = round((yield * 2.247),1),
          breakeven_price = round((breakeven_price * 1.1023),0),
          biomass = "prairie") %>%
   select(radius,discount_rate,biomass,yield,breakeven_price)
 
 beP_df <- read_csv("../data/raw/breakeven_prices_prairie.csv") %>%
-  filter(discount_rate == 0.06) %>%
-  mutate(yield = (yield * 2.247),
+  #filter(discount_rate == 0.06) %>%
+  mutate(yield = round((yield * 2.247),1),
          breakeven_price = round((breakeven_price * 1.1023),0),
          biomass = "prairie") %>%
-  select(radius,biomass,yield,breakeven_price)
+  select(radius,discount_rate,biomass,yield,breakeven_price)
 
 ```
+```{r mean_data, dependson = "create_soilpad"}
 
+beOC_p <- bePoc_df %>%
+  filter(discount_rate == "0.05") %>%
+  ggplot(aes(x = yield, y = breakeven_price, color=radius)) +
+  geom_line() +
+  labs(x = "Prairie Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "Breakeven Price Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal()
+
+beP_p <- beP_df %>%
+  filter(discount_rate == "0.09") %>%
+  ggplot(aes(x = yield, y = breakeven_price, color=radius)) +
+  geom_line() +
+  labs(x = "Prairie Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "Breakeven Price Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal()
+
+
+beCR_p <- beCR_df %>%
+  filter(discount_rate == "0.09") %>%
+  ggplot(aes(x = yield, y = breakeven_price, color=radius)) +
+  geom_line() +
+  labs(x = "Cereal Rye Yield (Mg/ha)",
+    y = "Biomass Payment ($/Mg)",
+    title = "Breakeven Price Across Yield, Payment, and Supplyshed Distance"
+  ) +
+  
+  theme_minimal()
+
+print(beOC_p)
+print(beP_p)
+print(beCR_p)
+
+```
 ```{r mean_data, dependson = "create_soilpad"}
 write.csv(huc12_ext, "../data/tidy/huc12ext_clusters.csv", row.names = FALSE)
 
