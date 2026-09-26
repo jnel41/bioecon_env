@@ -9,7 +9,7 @@ output:
     toc: yes
 ---
 
-```{r setup}
+```{r setup_HUC12}
 knitr::opts_chunk$set(echo = TRUE,
                       cache = TRUE)#,
                       #fig.width = 12,
@@ -29,21 +29,55 @@ options(scipen = 999, width = 200)
 dir.create("fig", showWarnings = FALSE)
 ```
 
+```{r}
+sessionInfo()
+```
 
 Look at bioyield and transportation costs
-```{r mean_data, dependson = "create_soilpad"}
+```{r ws_data, cache.extra=tools::md5sum("../data/raw/HUC12_list.csv")}
+
 wsArea <- read_csv("../data/raw/HUC12_list.csv") %>%
-  mutate(area_ha = areaacres *0.404686,
-         HUC12 = str_pad(huc12, width = 12, pad = "0"),
-         NO3_loadkg = SUM_wsNO3load_lbs*0.45359,
-         sed_loadkg = SUM_Mean_sed_tons*0.907185) %>%
-  select(area_ha, HUC12,NO3_loadkg,sed_loadkg)
+  mutate(supArea_ha = supArea_ac *0.404686,
+         area_ha = areaacres*0.404686,
+         HUC12 = str_pad(huc12, width = 12, pad = "0"))
+
+# IMPORTANT:
+# All outcomes in this analysis occur inside the 32-km supplyshed.
+# Therefore, landscape-scale metrics should use the area of each HUC12
+# that falls inside the 32-km supplyshed, rather than the full HUC12 area.
+#
+# HUC12_list.csv should contain `supplyshed_area_ha`, calculated from the
+# spatial intersection of the HUC12 boundaries and the 32-km supplyshed.
+# This keeps the denominator consistent with the spatial extent of the
+# outcomes being summarized.
+#
+# If `supplyshed_area_ha` has not yet been added to HUC12_list.csv, the
+# analysis is intentionally stopped rather than silently using full-HUC12
+# area and producing inconsistent normalized metrics.
+if (!"supArea_ha" %in% names(wsArea)) {
+  stop(
+    "HUC12_list.csv must contain `supplyshed_area_ha`, representing the ",
+    "area of each HUC12 within the 32-km supplyshed. Calculate this by ",
+    "intersecting the HUC12 boundaries with the 32-km supplyshed boundary."
+  )
+}
+
+wsArea <- wsArea %>%
+  select(HUC12, area_ha, supArea_ha)
+
+
+```
+## Read in data
+
+```{r, child="create_datasets.Rmd"}
+```
+
+
+```{r envOutcomes, dependson="create_df"}
 
 ## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
 envOutcome_CostSum <- practSumBIO %>%
-  #group_by(practice) %>%
   group_by(FBndID) %>%
-  #group_by(radial,biomass) %>%
   summarize(n       = n(),
             MLRA = max(MLRA),
             HUC12 = max(HUC12),
@@ -183,7 +217,10 @@ envOutcome_CostSum <- practSumBIO %>%
             #Q3_SEDTCcp_kg = quantile(TCcp_kgSED, probs = c(0.75), na.rm = TRUE),
             )
 
-write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
+#write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
+```
+
+```{r travelOutcomes, dependson="envOutcome"}
 
 travel_envOutcomes <- full_join(envOutcome_CostSum, fbSieversRoute)
 profit_trvl_env <- full_join(AvgProfit, travel_envOutcomes) %>%
@@ -241,19 +278,27 @@ travel_HUC12Sum <- travel_envOutcomes %>%
             Ccpdeliv_Mg = Ccpdeliv / sum_BioMg,
             Ccpdeliv_Mg_km = Ccpdeliv / sum_BioMg / rnd_dist
             )
+```
 
-profitHUC12 <- profit_yield %>%
+```{r HUC12data, dependson="envOutcome"}
+## need to run both exploratory_yields and exploratory_profits to get the profit_yield dataframe.
+profitHUC12 <- profit_yield %>% 
   filter(unprofit == "unprofitable") %>%
   group_by(HUC12) %>%
   summarize(sum_UNPha = sum(subArea_ha)) %>%
   drop_na()
 
 ysHUC12 <- profit_yield %>%
-  filter(stabCorn == "Unstable") %>%
+  #filter(stabCorn == "Unstable") %>%
+  filter(stabCorn != "Stable Low") %>%
   group_by(HUC12) %>%
   summarize(sum_UNSTha = sum(subArea_ha)) #%>%
   #drop_na()
-  
+
+
+```
+
+```{r HUC12_travel, dependson="HUC12data"}
 Ctravel_HUC12 <- travel_HUC12Sum %>%
   #group_by(radial) %>%
   group_by(HUC12) %>%
@@ -333,8 +378,11 @@ Ctravel_HUC12 <- travel_HUC12Sum %>%
             #Q3_Cdeliv_Mg = quantile(Cdeliv_Mg, probs = c(0.75), na.rm = TRUE)
   )
 
-write_csv(Ctravel_radial,"travelcosts_byRad.csv")
+#write_csv(Ctravel_radial,"travelcosts_byRad.csv")
 
+```
+
+```{r HUC12_summary, dependson="HUC12_travel"}
 huc12_summary <- full_join(Ctravel_HUC12, wsArea)
 
 huc12_summary <- wsArea %>%
@@ -346,562 +394,385 @@ huc12_summary <- wsArea %>%
 
 
 huc12_df <- huc12_summary %>%
-  #drop_na() %>%
-  mutate(per_treated = sumOPha / area_ha,
-         #per_unstable = sum_UNSTha / area_ha,
-         #per_unprofit = sum_UNPha / area_ha,
-         per_patch = sumpatch / area_ha,
-         per_lin = sumlin / area_ha,
-         #per_prairie = sumprairie / area_ha,
-         per_rye = sumrye / area_ha,
-         bio_Mg_ha = sumBioMg/area_ha,
-         #dc_ha = sumDC / area_ha,
-         #oc_ha = sumOC / area_ha,
-         #tc_ha = sumTC / area_ha,
-         dccp_ha = sumDCcp / area_ha,
-         #tccp_ha = sumTCcp / area_ha,
-         #co2_ha = sumCO2 / area_ha,
-         #n20_ha = sumN2Ored /area_ha,
-         ghg_ha = (sumCO2 + sumN2Ored)/area_ha,
-         no3_ha = sumNO3red / area_ha,
-         sed_ha = sumSEDred / area_ha
-         #NO3_TC = sumNO3red / sumTC,
-         #NO3_TCcp = sumNO3red / sumTCcp,
-         #SED_TC = sumSEDred / sumTC,
-         #SED_TCcp = sumSEDred / sumTCcp,
-         #BIO_TC = sumBioMg / sumTC,
-         #BIO_TCcp = sumBioMg / sumTCcp,
-         #area_TC = sumOPha / sumTC,
-         #area_TCcp = sumOPha / sumTCcp
-         )
-         
-
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12_ext <- huc12_df
-
-vars <- huc12_ext %>%
-  select(co2_ha,n20_ha,no3_ha,sed_ha,per_patch,per_lin,per_rye,bio_Mg_ha,dccp_ha)
-
-vars_scaled <- scale(vars)
-
-fviz_nbclust(vars_scaled, kmeans, method = "wss")
-fviz_nbclust(vars_scaled, kmeans, method = "silhouette")
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-set.seed(123)
-
-k <- 3
-
-km_model <- kmeans(vars_scaled, centers = k, nstart = 25)
-
-huc12_ext$cluster <- as.factor(km_model$cluster)
-
-cluster_summary <- huc12_ext %>%
-  group_by(cluster) %>%
-  summarize(across(c(co2_ha,n20_ha,no3_ha,sed_ha,per_patch,per_lin,per_rye,bio_Mg_ha,dccp_ha), mean, na.rm = TRUE))
-
-print(cluster_summary)
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12_ext <- huc12_ext %>%
-  mutate(Cluster_Label = case_when(
-    cluster == "1" ~ "THE/MC", 
-    cluster == "2" ~ "LO/LC", 
-    cluster == "3" ~ "HO/HC" 
-  ))
-
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-ggplot(huc12_ext, aes(x = (per_treated),
-                     y = no3_ha,
-                     color = Cluster_Label)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  labs(x = "Percent Treated",
-       y = "N Reduction (kg/ha)",
-       color = "Cluster") +
-  geom_text_repel(aes(label = HUC12),
-                  size = 3,
-                  max.overlaps = 10)
-
-```
-
-
-```{r mean_data, dependson = "create_soilpad"}
-fviz_cluster(km_model,
-             data = vars_scaled,
-             geom = "point",
-             ellipse.type = "convex",
-             ggtheme = theme_minimal())
-
-```
-
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12_ext %>%
-  pivot_longer(c(no3_ha,sed_ha,co2_ha,n20_ha,per_patch,per_lin,per_rye,bio_Mg_ha,dccp_ha),
-               names_to = "Metric",
-               values_to = "Value") %>%
-  ggplot(aes(x = cluster,
-             y = Value,
-             fill = cluster)) +
-  geom_boxplot() +
-  theme_minimal() +
-  theme(axis.text.x = element_text(hjust = 1)) +
-  facet_wrap(~factor(Metric, levels = c("no3_ha","sed_ha","co2_ha","n20_ha","per_patch","per_lin","per_rye","bio_Mg_ha","dccp_ha")), scales = "free_y", ncol=3) +
-  scale_fill_manual(values = c('#7CE29F','#5F999C','#9C9B5C'))
-
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-write.csv(huc12_ext, "../data/tidy/huc12ext_clustersv2.csv", row.names = FALSE)
-
-anova_result <- aov(co2_ha ~ cluster, data = huc12_df)
-summary(anova_result)
-
-```
-
-## Create efficiency-based scenarios (above is extent)
-```{r mean_data, dependson = "create_soilpad"}
-huc12_eff <- huc12_df
-
-huc12_eff <- huc12_eff %>%
   mutate(
-    no3_eff = no3_ha / per_treated,
-    sed_eff = sed_ha / per_treated,
-    co2_eff = co2_ha / per_treated,
-    n2o_eff = n20_ha / per_treated,
-    patch_eff = sumpatch / per_treated,
-    lin_eff = sumlin / per_treated,
-    prairie_eff = patch_eff + lin_eff,
-    rye_eff = sumrye / per_treated,
-    bio_eff = bio_Mg_ha / per_treated,
-    dccp_eff = dccp_ha / per_treated # cost per treated area
+    # ----------------------------------------------------------
+    # Landscape-scale metrics
+    #
+    # The denominator is the portion of each HUC12 within the
+    # 32-km supplyshed (`area_ha`), so all outcomes and treatment
+    # areas are expressed relative to the same spatial extent.
+    # ----------------------------------------------------------
+    per_treated = sumOPha / area_ha,
+    per_patch = sumpatch / area_ha,
+    per_lin = sumlin / area_ha,
+    per_prairie = sumprairie / area_ha,
+    per_rye = sumrye / area_ha,
+
+    bio_Mg_ha = sumBioMg / area_ha,
+    dccp_ha = sumDCcp / area_ha,
+
+    ghg_ha = (sumCO2 + sumN2Ored) / area_ha,
+    no3_ha = sumNO3red / area_ha,
+    sed_ha = sumSEDred / area_ha,
+    no3_red = sumNO3red/NO3_loadkg,
+    sed_red = sumSEDred/sed_loadkg,
+    
+    
+    stabLow_ha = sum_UNSTha / area_ha,
+    unprofit_ha = sum_UNPha / area_ha,
+    oc_ha = sumOC / area_ha,
+
+    # ----------------------------------------------------------
+    # Treatment-level performance metrics
+    #
+    # These are calculated per hectare treated and are kept
+    # separate from the landscape-scale classification.
+    # ----------------------------------------------------------
+    no3_per_treated_ha = sumNO3red / sumOPha,
+    sed_per_treated_ha = sumSEDred / sumOPha,
+    ghg_per_treated_ha = (sumCO2 + sumN2Ored) / sumOPha,
+    bio_per_treated_ha = sumBioMg / sumOPha,
+    oc_per_treated_ha = sumOC / sumOPha,
+    dccp_per_treated_ha = sumDCcp / sumOPha,
+    tccp_per_treated_ha = sumTCcp / sumOPha,
+
+    # Treatment composition, not efficiency
+    prairie_share_treated = sumprairie / sumOPha,
+    rye_share_treated = sumrye / sumOPha
   ) %>%
-  drop_na()
-
-vars_eff <- huc12_eff %>%
-  select(no3_eff,sed_eff,co2_eff,n2o_eff,prairie_eff,rye_eff,bio_eff,dccp_eff) %>%
-  drop_na()
-
-vars_eff_scaled <- scale(vars_eff)
+  filter(sumOPha > 0)
 
 ```
 
-```{r mean_data, dependson = "create_soilpad"}
-fviz_nbclust(vars_eff_scaled, kmeans, method = "wss")
-fviz_nbclust(vars_eff_scaled, kmeans, method = "silhouette")
-
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-km_eff <- kmeans(vars_eff_scaled, centers = 2, nstart = 25)
-
-huc12_eff$Cluster <- as.factor(km_eff$cluster)
-
-huc12_eff_summary <- huc12_eff %>%
-  group_by(Cluster) %>%
-  summarise(across(c(no3_eff,sed_eff,co2_eff,n2o_eff,prairie_eff,rye_eff,bio_eff,dccp_eff),
-                   mean, na.rm = TRUE))
-
-print(huc12_eff_summary)
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12_eff <- huc12_eff %>%
-  mutate(Cluster_Label = case_when(
-    Cluster == "1" ~ "Balanaced / LC", # low opportunity, low cost
-    Cluster == "2" ~ "WQ / MC", # extensive transformation, high cost
-    Cluster == "3" ~ "HO / HC" # targeted high efficiency, medium cost
-  ))
-
-head(huc12_eff)
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-ggplot(huc12_eff, aes(x = dccp_eff,
-                     y = no3_eff,
-                     color = Cluster_Label)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  labs(x = "Total Biomass Cost ($2026)",
-       y = "N Reduction Efficiency (kg/ha)",
-       color = "Cluster") +
-  geom_text_repel(aes(label = HUC12),
-                  size = 3,
-                  max.overlaps = 10)
-
-```
-
-
-```{r mean_data, dependson = "create_soilpad"}
-fviz_cluster(km_eff,
-             data = vars_eff_scaled,
-             geom = "point",
-             ellipse.type = "convex",
-             ggtheme = theme_minimal())
-
-```
-
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12_eff %>%
-  pivot_longer(cols = c(no3_eff,sed_eff,co2_eff,n2o_eff,prairie_eff,rye_eff,bio_eff,dccp_eff),
-               names_to = "Metric",
-               values_to = "Value") %>%
-  ggplot(aes(x = Cluster,
-             y = Value,
-             fill = Cluster)) +
-  geom_boxplot() +
-  facet_wrap(~factor(Metric, levels = c("no3_eff","sed_eff","prairie_eff","co2_eff","n2o_eff","rye_eff","bio_eff","dccp_eff")), scales = "free_y", ncol=3) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(hjust = 1)) +
-  scale_fill_manual(values = c('#C6A741','#F2E3BF','#F9ED35'))
-  #scale_fill_manual(values = c('#C6A741','#F2E3BF'))
-
-write.csv(huc12_eff, "../data/tidy/huc12eff_clustersv2.csv", row.names = FALSE)
-
-```
-
-
-
-```{r mean_data, dependson = "create_soilpad"}
-huc12ext_struc <- huc12_ext %>%
-  group_by(cluster) %>%
-  summarize(n = n(),
-            mean_UNSTB = mean(sum_UNSTha/sumOPha),
-            med_UNSTB = median(sum_UNSTha/sumOPha),
-            Q1_UNSTB = quantile((sum_UNSTha/sumOPha), probs = c(0.25), na.rm = TRUE),
-            Q3_UNSTB = quantile((sum_UNSTha/sumOPha), probs = c(0.75), na.rm = TRUE),
-            per_UNST = sum(sum_UNSTha)/ sum(sumOPha),
-            mean_UNP = mean(sum_UNPha/sumOPha),
-            med_UNP = median(sum_UNPha/sumOPha),
-            Q1_UNP = quantile((sum_UNPha/sumOPha), probs = c(0.25), na.rm = TRUE),
-            Q3_UNP = quantile((sum_UNPha/sumOPha), probs = c(0.75), na.rm = TRUE),
-            per_UNP = sum(sum_UNPha) / sum(sumOPha),
-            mean_OC = mean(sumOC / sumprairie)
-            )
-
-huc12eff_unp <- huc12_eff %>%
-  group_by(Cluster) %>%
-  summarize(n = n(),
-            mean_UNP = mean(sum_UNPha/sumOPha),
-            med_UNP = median(sum_UNPha/sumOPha),
-            Q1_UNP = quantile((sum_UNPha/sumOPha), probs = c(0.25), na.rm = TRUE),
-            Q3_UNP = quantile((sum_UNPha/sumOPha), probs = c(0.75), na.rm = TRUE),
-            per_UNP = sum(sum_UNPha) / sum(sumOPha),
-            mean_OC = mean(sumOC / sumprairie)
-            ) 
-
-huc12eff_unst <- huc12_eff %>%
-  group_by(Cluster) %>%
-  filter(sum_UNSTha >0) %>%
-  summarize(nst = n(),
-            mean_UNSTB = mean(sum_UNSTha/sumOPha),
-            med_UNSTB = median(sum_UNSTha/sumOPha),
-            Q1_UNSTB = quantile((sum_UNSTha/sumOPha), probs = c(0.25), na.rm = TRUE),
-            Q3_UNSTB = quantile((sum_UNSTha/sumOPha), probs = c(0.75), na.rm = TRUE),
-            per_UNST = sum(sum_UNSTha)/ sum(sumOPha))
-
-
-```
-
-```{r mean_data, dependson = "create_soilpad"}
-
+```{r multivariate, dependson="HUC12_summary"}
 # ============================================================
-# HUC12 LANDSCAPE ARCHETYPE ANALYSIS
+# MULTIVARIATE HUC12 PLANNING CLASSIFICATION
+# ============================================================
+#
+# The classification describes combinations of:
+#   * treatment extent and composition,
+#   * landscape-scale environmental outcomes,
+#   * biomass production, and
+#   * direct conservation investment.
+#
+# It is a classification step within the decision-support
+# framework, not a universal ranking of HUC12s.
 # ============================================================
 
-huc12_ext <- huc12_df
+huc12_planning <- huc12_df
 
 # ------------------------------------------------------------
-# 1. Select variables describing landscape transformation,
-#    environmental outcomes, biomass, and implementation cost
+# 1. Variables used for the planning classification
+#
+# GHG is retained as an important output but is not used to
+# define the classes because the current GHG estimates are
+# strongly tied to practice extent/composition. N2O is included
+# within ghg_ha and is therefore retained as an output rather
+# than used as a separate clustering variable.
 # ------------------------------------------------------------
 
-archetype_vars <- huc12_ext %>%
-  select(no3_ha,sed_ha,per_patch,per_lin,per_rye,dccp_ha)
-  #select(co2_ha,n20_ha,no3_ha,sed_ha,per_patch,per_lin,per_rye,bio_Mg_ha,dccp_ha)
+cluster_vars <- huc12_planning %>%
+  select(
+    #per_treated,
+    per_patch,
+    per_lin,
+    per_rye,
+    no3_ha,
+    sed_ha,
+    bio_Mg_ha,
+    ghg_ha
+    #dccp_ha
+  )
 
-# Standardize variables before PCA
-archetype_scaled <- scale(archetype_vars)
+# Retain only HUC12s with complete classification data.
+cluster_complete <- cluster_vars %>%
+  drop_na()
 
+huc12_cluster <- huc12_planning %>%
+  filter(complete.cases(cluster_vars))
 
+# Standardize variables because they are measured in different units.
+cluster_scaled <- scale(cluster_complete)
+
+```
+
+```{r pca, dependson="multivariate"}
 # ------------------------------------------------------------
-# 2. Principal components analysis
+# 2. Correlation and PCA diagnostics
+#
+# PCA is used here to understand variable structure and aid
+# interpretation. Clustering is performed on all standardized
+# classification variables rather than an arbitrary subset of
+# principal components.
 # ------------------------------------------------------------
 
-pca_model <- prcomp(archetype_scaled,center = TRUE,scale. = FALSE)
+cluster_cor <- cor(
+  cluster_complete,
+  use = "pairwise.complete.obs"
+)
 
-# PCA variance explained
+print(cluster_cor)
+
+pca_model <- prcomp(
+  cluster_scaled,
+  center = FALSE,
+  scale. = FALSE
+)
+
 summary(pca_model)
 
-# Scree plot
-fviz_eig(pca_model,addlabels = TRUE)
+fviz_eig(
+  pca_model,
+  addlabels = TRUE
+)
 
-# Variable contributions/loadings
-fviz_pca_var(pca_model,col.var = "contrib",repel = TRUE)
-
-# PCA biplot
-fviz_pca_biplot(pca_model,repel = TRUE)
-
+fviz_pca_var(
+  pca_model,
+  col.var = "contrib",
+  repel = TRUE
+)
 
 # ------------------------------------------------------------
-# 3. Determine number of clusters
-#
-# Use retained PCA scores rather than the original variables.
-# Here PC1-PC3 are retained. Change this if the PCA indicates
-# that a different number of PCs is appropriate.
+# 3. Evaluate candidate numbers of planning classes
 # ------------------------------------------------------------
 
-pca_scores <- as.data.frame(pca_model$x[, 1:3])
-
-fviz_nbclust(pca_scores,kmeans,method = "wss")
-
-fviz_nbclust(pca_scores,kmeans,method = "silhouette")
-
 set.seed(123)
-# WSS
-wss_plot <- fviz_nbclust(pca_scores,kmeans,method = "wss",nstart = 25)
 
-# Silhouette
-set.seed(123)
-sil_plot <- fviz_nbclust(pca_scores,kmeans,method = "silhouette",nstart = 25)
+wss_plot <- fviz_nbclust(
+  cluster_scaled,
+  kmeans,
+  method = "wss",
+  k.max = 6,
+  nstart = 100
+)
+
+sil_plot <- fviz_nbclust(
+  cluster_scaled,
+  kmeans,
+  method = "silhouette",
+  k.max = 6,
+  nstart = 100
+)
 
 wss_plot
 sil_plot
 
-sil2 <- silhouette(
-  kmeans(vars_scaled, centers = 5, nstart = 25)$cluster,
-  dist(vars_scaled)
+# Compare candidate solutions directly.
+set.seed(123)
+
+km2 <- kmeans(cluster_scaled, centers = 2, nstart = 100)
+km3 <- kmeans(cluster_scaled, centers = 3, nstart = 100)
+km4 <- kmeans(cluster_scaled, centers = 4, nstart = 100)
+km5 <- kmeans(cluster_scaled, centers = 5, nstart = 100)
+
+sil2 <- silhouette(km2$cluster, dist(cluster_scaled))
+sil3 <- silhouette(km3$cluster, dist(cluster_scaled))
+sil4 <- silhouette(km4$cluster, dist(cluster_scaled))
+sil5 <- silhouette(km5$cluster, dist(cluster_scaled))
+
+silhouette_summary <- tibble(
+  k = 2:5,
+  mean_silhouette = c(
+    mean(sil2[, "sil_width"]),
+    mean(sil3[, "sil_width"]),
+    mean(sil4[, "sil_width"]),
+    mean(sil5[, "sil_width"])
+  ),
+  min_silhouette = c(
+    min(sil2[, "sil_width"]),
+    min(sil3[, "sil_width"]),
+    min(sil4[, "sil_width"]),
+    min(sil5[, "sil_width"])
+  )
 )
 
-sil3 <- silhouette(
-  kmeans(vars_scaled, centers = 3, nstart = 25)$cluster,
-  dist(vars_scaled)
-)
+print(silhouette_summary)
 
-summary(sil2)
-summary(sil3)
-plot(sil2, main = "Silhouette plot: k = 2")
-plot(sil3, main = "Silhouette plot: k = 3")
 ```
 
-```{r mean_data, dependson = "create_soilpad"}
+```{r cluster_analysis, dependson="pca"}
+
 # ------------------------------------------------------------
-# 4. K-means clustering
+# 4. Select the planning-class solution
+#
+# k = 3 is used as the working solution because three classes
+# provide a digestible stakeholder-facing classification while
+# retaining meaningful differentiation. This choice should be
+# revisited after the revised variables and clipped-area
+# denominator are applied, using silhouette performance,
+# cluster size, and interpretability together.
 # ------------------------------------------------------------
 
 set.seed(123)
-
 k <- 5
 
-km_model <- kmeans(pca_scores,centers = k,nstart = 25)
+km_model <- kmeans(
+  cluster_scaled,
+  centers = k,
+  nstart = 100
+)
 
-huc12_ext$cluster <- factor(km_model$cluster)
-
+huc12_cluster$cluster <- factor(km_model$cluster)
 
 # ------------------------------------------------------------
-# 5. Summarize landscape archetypes
+# 5. Summarize planning classes before assigning labels
+#
+# Cluster numbers are arbitrary. Inspect this table before
+# assigning descriptive labels.
 # ------------------------------------------------------------
 
-cluster_summary <- huc12_ext %>%
+cluster_summary <- huc12_cluster %>%
   group_by(cluster) %>%
-  summarise(n = n(),
-    #mean_co2_ha = mean(co2_ha, na.rm = TRUE),
-   # mean_n20_ha = mean(n20_ha, na.rm = TRUE),
-    mean_ghg_ha = mean(ghg_ha, na.rm = TRUE),
-    mean_no3_ha = mean(no3_ha, na.rm = TRUE),
-    mean_sed_ha = mean(sed_ha, na.rm = TRUE),
-
-    mean_per_patch = mean(per_patch, na.rm = TRUE),
-    mean_per_lin = mean(per_lin, na.rm = TRUE),
-    #mean_per_prairie = mean(per_prairie, na.rm = TRUE),
-    mean_per_rye = mean(per_rye, na.rm = TRUE),
-
-    mean_bio_Mg_ha = mean(bio_Mg_ha, na.rm = TRUE),
-    mean_dccp_ha = mean(dccp_ha, na.rm = TRUE),
+  summarise(
+    n = n(),
 
     mean_per_treated = mean(per_treated, na.rm = TRUE),
+    mean_per_patch = mean(per_patch, na.rm = TRUE),
+    mean_per_lin = mean(per_lin, na.rm = TRUE),
+    mean_per_rye = mean(per_rye, na.rm = TRUE),
 
-    .groups = "drop")
+    mean_no3_ha = mean(no3_ha, na.rm = TRUE),
+    mean_sed_ha = mean(sed_ha, na.rm = TRUE),
+    mean_ghg_ha = mean(ghg_ha, na.rm = TRUE),
+    mean_bio_Mg_ha = mean(bio_Mg_ha, na.rm = TRUE),
+    mean_dccp_ha = mean(dccp_ha, na.rm = TRUE),
+    mean_no3red = mean(no3_red),
+    mean_sedred = mean(sed_red),
+
+    .groups = "drop"
+  )
 
 print(cluster_summary)
-
-
-# ------------------------------------------------------------
-# 6. Assign descriptive labels AFTER examining cluster means
-#
-# IMPORTANT:
-# k-means cluster numbers are arbitrary.
-# Do not assume cluster 1 = low, cluster 2 = intermediate,
-# etc. until you inspect cluster_summary.
-# ------------------------------------------------------------
-
-huc12_ext <- huc12_ext %>%
-  mutate(
-    Cluster_Label = case_when(
-      cluster == "1" ~ "Intermediate-transformation landscape",
-      cluster == "2" ~ "Low-transformation landscape",
-      cluster == "3" ~ "High-transformation landscape"
-    )
-  )
-
-
-# ------------------------------------------------------------
-# 7. Visualize PCA-based clusters
-# ------------------------------------------------------------
-
-fviz_cluster(km_model,data = pca_scores,geom = "point",ellipse.type = "convex",ggtheme = theme_minimal())
-
-
-# ------------------------------------------------------------
-# 8. Landscape archetype distributions
-# ------------------------------------------------------------
-
-huc12_ext %>%
-  pivot_longer(
-    cols = c(no3_ha,sed_ha,
-             #co2_ha,
-             #n20_ha,   
-             ghg_ha,per_patch,per_lin,
-      #per_prairie,
-      per_rye,bio_Mg_ha,dccp_ha),
-    names_to = "Metric",
-    values_to = "Value"
-  ) %>%
-  ggplot(
-    aes(
-      x = cluster,
-      y = Value,
-      fill = cluster
-    )
-  ) +
-  geom_boxplot() +
-  facet_wrap(
-    ~factor(
-      Metric,
-      levels = c(
-        "no3_ha",
-        "sed_ha",
-        #"co2_ha",
-        #"n20_ha",
-        "ghg_ha",
-        "per_patch",
-        "per_lin",
-        #"per_prairie",
-        "per_rye",
-        "bio_Mg_ha",
-        "dccp_ha"
-      )
-    ),
-    scales = "free_y",
-    ncol = 3
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(hjust = 1)
-  )
-
-
-# ------------------------------------------------------------
-# 9. Export landscape archetype dataset
-# ------------------------------------------------------------
-
 write.csv(
-  huc12_ext,
-  "../data/tidy/huc12_landscape_archetypes.csv",
+  cluster_summary,
+  "../data/tidy/cluster_summary.csv",
   row.names = FALSE
 )
 
+```
 
+```{r planning_clusters, dependson="cluster_analysis"}
+# ------------------------------------------------------------
+# 6. Use the cluster solution as the planning classification
+#
+# Do not assign value-laden labels such as "best", "high
+# opportunity", or "low quality". The classes are descriptive
+# groupings and planners can interpret them according to their
+# own objectives.
+# ------------------------------------------------------------
+
+huc12_planning <- huc12_cluster %>%
+  mutate(
+    Planning_Class = paste0("Planning class ", cluster)
+  )
+
+# Join the class back to the full HUC12 dataset.
+huc12_planning <- huc12_df %>%
+  left_join(
+    huc12_planning %>%
+      select(HUC12, cluster, Planning_Class),
+    by = "HUC12"
+  )
+
+# ------------------------------------------------------------
+# 7. Visualize planning classes
+# ------------------------------------------------------------
+
+fviz_cluster(
+  km_model,
+  data = cluster_scaled,
+  geom = "point",
+  ellipse.type = "convex",
+  ggtheme = theme_minimal()
+)
+
+# ------------------------------------------------------------
+# 8. Landscape-scale distributions by planning class
+# ------------------------------------------------------------
+facet_labels <- c(
+  bio_Mg_ha   = "atop(Biomass~Yield,(Mg~ha^{-1}))",
+  no3_ha      = "atop(NO[3]~Load~Red.,(Mg~ha^{-1}))",
+  dccp_ha     = "atop(Direct~Cost,(USD~ha^{-1}))",
+  sed_ha      = "atop(Sed.~Load~Red.,(Mg~ha^{-1}))",
+  ghg_ha      = "atop(GHG~Red.,(Mg~CO[2]*e~ha^{-1}))",
+  per_treated = "Treated~('%')",
+  per_patch   = "Prairie~Patch~('%')",
+  per_lin     = "Linear~Habitat~('%')",
+  per_rye     = "Cereal~Rye~('%')"
+)
+
+huc12_planning %>%
+  pivot_longer(cols = c(no3_ha,sed_ha,ghg_ha,per_treated,per_patch,per_lin,per_rye,bio_Mg_ha,dccp_ha
+             #unprofit_ha,
+             #stabLow_ha
+    ),names_to = "Metric",values_to = "Value") %>%
+  ggplot(aes(x = Planning_Class,y = Value,fill = Planning_Class)) +
+  geom_boxplot() +
+  facet_wrap(~ factor(Metric, c("no3_ha","sed_ha","ghg_ha","bio_Mg_ha","per_treated","per_rye","per_patch","per_lin","dccp_ha")), scales = "free_y",ncol = 2,,
+             strip.position = "left",
+             labeller = as_labeller(facet_labels, label_parsed)) +
+  ylab(NULL) +
+  theme_minimal() +
+  theme(text = element_text(family = "serif", size = 9),
+    axis.text.x = element_blank(),
+    strip.background = element_blank(),
+    strip.placement = "outside"
+  ) +
+  scale_fill_manual(values = c('#377EB8','#4DAF4A','#984EA3','#FF7F00','#FFFF33'), labels = c("Nutrient-Biomass Integration", "Limited Environmental Intervention","Moderate Multifunctional Outcomes","Water-Quality-Biomass Integration","Prairie-Habitat-Nutrient Integration"))
+
+#write.csv(
+#  huc12_planning,
+#  "../data/tidy/huc12_planning_classes.csv",
+#  row.names = FALSE
+#)
+
+```
+
+```{r treatment_performance, dependson="planning_clusters"}
 # ============================================================
 # TREATMENT-PERFORMANCE ANALYSIS
 # ============================================================
+#
+# These metrics answer a different question from the landscape
+# classification: how do outcomes and implementation intensity
+# compare per hectare actually treated?
+# ============================================================
 
-huc12_perf <- huc12_ext %>%
-
+huc12_perf <- huc12_planning %>%
+  #filter(sumOPha > 0) %>%
   mutate(
-
-    # --------------------------------------------------------
     # Environmental outcome per treated hectare
-    # --------------------------------------------------------
+    no3_per_treated_ha = sumNO3red / sumOPha,
+    sed_per_treated_ha = sumSEDred / sumOPha,
+    ghg_per_treated_ha = (sumCO2 + sumN2Ored) / sumOPha,
 
-    no3_per_treated_ha =
-      sumNO3red / sumOPha,
-
-    sed_per_treated_ha =
-      sumSEDred / sumOPha,
-
-    #co2_per_treated_ha =
-      sumCO2 / sumOPha,
-
-    #n2o_per_treated_ha =
-      sumN2Ored / sumOPha,
-    ghg_per_treated_ha =
-      (sumCO2 + sumN2Ored) / sumOPha,
-
-    # --------------------------------------------------------
     # Biomass production per treated hectare
-    # --------------------------------------------------------
+    bio_per_treated_ha = sumBioMg / sumOPha,
 
-    bio_per_treated_ha =
-      sumBioMg / sumOPha,
+    # Treatment composition
+    prairie_share_treated = sumprairie / sumOPha,
+    rye_share_treated = sumrye / sumOPha,
 
-
-    # --------------------------------------------------------
-    # Composition of treated area
-    #
-    # These are NOT efficiency metrics.
-    # They describe what proportion of treated land is prairie
-    # or rye.
-    # --------------------------------------------------------
-
-    #prairie_share_treated =
-    #  sumprairie / sumOPha,
-
-    rye_share_treated =
-      sumrye / sumOPha,
-
-
-    # --------------------------------------------------------
-    # Direct conservation cost per treated hectare
-    # --------------------------------------------------------
-
-    dccp_per_treated_ha =
-      sumDCcp / sumOPha
+    # Direct conservation investment per treated hectare
+    dccp_per_treated_ha = sumDCcp / sumOPha,
+    tccp_per_treated_ha,
+    
+    #structural feasibility
+    stabLow_ha,
+    unprofit_ha
   )
 
-
 # ------------------------------------------------------------
-# Remove HUC12s with zero treated area before calculating
-# per-treated-hectare metrics
-# ------------------------------------------------------------
-
-huc12_perf <- huc12_perf %>%
-  filter(
-    sumOPha > 0
-  )
-
-
-# ------------------------------------------------------------
-# 10. Summarize treatment performance by landscape archetype
+# 9. Summarize treatment performance by planning class
 # ------------------------------------------------------------
 
 performance_summary <- huc12_perf %>%
-  group_by(cluster) %>%
+  group_by(Planning_Class) %>%
   summarise(
-
     n = n(),
 
     # Landscape extent
-    mean_per_treated =
-      mean(per_treated, na.rm = TRUE),
+    mean_per_treated = mean(per_treated, na.rm = TRUE),
 
     # Environmental performance
     mean_no3_per_treated_ha =
@@ -910,11 +781,6 @@ performance_summary <- huc12_perf %>%
     mean_sed_per_treated_ha =
       mean(sed_per_treated_ha, na.rm = TRUE),
 
-    #mean_co2_per_treated_ha =
-    #  mean(co2_per_treated_ha, na.rm = TRUE),
-
-    #mean_n2o_per_treated_ha =
-    #  mean(n2o_per_treated_ha, na.rm = TRUE),
     mean_ghg_per_treated_ha =
       mean(ghg_per_treated_ha, na.rm = TRUE),
 
@@ -923,8 +789,8 @@ performance_summary <- huc12_perf %>%
       mean(bio_per_treated_ha, na.rm = TRUE),
 
     # Treatment composition
-    #mean_prairie_share_treated =
-    #  mean(prairie_share_treated, na.rm = TRUE),
+    mean_prairie_share_treated =
+      mean(prairie_share_treated, na.rm = TRUE),
 
     mean_rye_share_treated =
       mean(rye_share_treated, na.rm = TRUE),
@@ -932,76 +798,102 @@ performance_summary <- huc12_perf %>%
     # Investment intensity
     mean_dccp_per_treated_ha =
       mean(dccp_per_treated_ha, na.rm = TRUE),
+    mean_tccp_per_treated_ha =
+      mean(tccp_per_treated_ha, na.rm = TRUE),
+    
+    #structural feasibility
+    mean_stabLow_ha =
+      mean(stabLow_ha, na.rm = TRUE),
+    
+    mean_unprofit_ha =
+      mean(unprofit_ha, na.rm = TRUE),
+    
 
     .groups = "drop"
   )
 
 print(performance_summary)
 
-
 # ------------------------------------------------------------
-# 11. Treatment-performance distributions by archetype
+# 10. Treatment-performance distributions
 # ------------------------------------------------------------
-
+facet2_labels <- c(
+  bio_per_treated_ha   = "atop(Biomass~Yield,(Mg~ha^{-1}))",
+  no3_per_treated_ha      = "atop(NO[3]~Load~Red.,(Mg~ha^{-1}))",
+  dccp_per_treated_ha     = "atop(Direct~Cost,(USD~ha^{-1}))",
+  oc_per_treated_ha = "atop(Opportunity~Cost,(USD~ha^{-1}))",
+  unprofit_ha = "Unprofitable~Area~(%)",
+  sed_per_treated_ha      = "atop(Sed.~Load~Red.,(Mg~ha^{-1}))",
+  ghg_per_treated_ha      = "atop(GHG~Red.,(Mg~CO[2]*e~ha^{-1}))",
+  per_treated = "Treated~('%')",
+  prairie_share_treated   = "Prairie~('%')",
+  rye_share_treated     = "Cereal~Rye~('%')"
+)
 huc12_perf %>%
   pivot_longer(
     cols = c(
       no3_per_treated_ha,
       sed_per_treated_ha,
-      #co2_per_treated_ha,
-      #n2o_per_treated_ha,
       ghg_per_treated_ha,
       bio_per_treated_ha,
-      dccp_per_treated_ha
+      dccp_per_treated_ha,
+      rye_share_treated,
+      prairie_share_treated,
+      oc_per_treated_ha,
+      unprofit_ha
+      #stabLow_ha,
     ),
     names_to = "Metric",
     values_to = "Value"
   ) %>%
   ggplot(
     aes(
-      x = cluster,
+      x = Planning_Class,
       y = Value,
-      fill = cluster
+      fill = Planning_Class
     )
   ) +
   geom_boxplot() +
-  facet_wrap(
-    ~Metric,
-    scales = "free_y",
-    ncol = 3
+  facet_wrap(~ factor(Metric, c("no3_per_treated_ha","sed_per_treated_ha","ghg_per_treated_ha","bio_per_treated_ha","per_treated","rye_share_treated","prairie_share_treated","dccp_per_treated_ha","oc_per_treated_ha","unprofit_ha")), scales = "free_y",ncol = 2,,
+             strip.position = "left",
+             labeller = as_labeller(facet2_labels, label_parsed)) +
+  ylab(NULL) +
+  theme_minimal() +
+  theme(text = element_text(family = "serif", size = 9),
+    axis.text.x = element_blank(),
+    strip.background = element_blank(),
+    strip.placement = "outside"
   ) +
-  theme_minimal()
-
+  scale_fill_manual(values = c('#377EB8','#4DAF4A','#984EA3','#FF7F00','#FFFF33'), labels = c("Nutrient-Biomass Integration", "Limited Environmental Intervention","Moderate Multifunctional Outcomes","Water-Quality-Biomass Integration","Prairie-Habitat-Nutrient Integration"))
 
 # ------------------------------------------------------------
-# 12. Example relationship between treatment extent and
-#     landscape-scale NO3 outcome
+# 11. Treatment extent versus landscape-scale NO3 outcome
 # ------------------------------------------------------------
 
-ggplot(huc12_perf,
+ggplot(
+  huc12_perf,
   aes(
     x = per_treated,
     y = no3_ha,
-    color = cluster
+    color = Planning_Class
   )
 ) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(
-    x = "Proportion of HUC12 Treated",
-    y = "N Reduction (kg/ha HUC12)",
-    color = "Landscape Archetype"
+    x = "Proportion of HUC12 Area within Supplyshed Treated",
+    y = "N Reduction (kg/ha of HUC12 within Supplyshed)",
+    color = "Planning Class"
   ) +
   geom_text_repel(
     aes(label = HUC12),
     size = 3,
     max.overlaps = 10
-  )
-
+  ) +
+  scale_fill_manual(values = c('#377EB8','#4DAF4A','#984EA3','#FF7F00','#FFFF33'))
 
 # ------------------------------------------------------------
-# 13. Example relationship between treatment extent and
-#     treatment-level NO3 performance
+# 12. Treatment extent versus treatment-level NO3 performance
 # ------------------------------------------------------------
 
 ggplot(
@@ -1009,30 +901,92 @@ ggplot(
   aes(
     x = per_treated,
     y = no3_per_treated_ha,
-    color = cluster
+    color = Planning_Class
   )
 ) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(
-    x = "Proportion of HUC12 Treated",
+    x = "Proportion of HUC12 Area within Supplyshed Treated",
     y = "N Reduction (kg/treated ha)",
-    color = "Landscape Archetype"
+    color = "Planning Class"
   ) +
   geom_text_repel(
     aes(label = HUC12),
     size = 3,
     max.overlaps = 10
-  )
-
-
-# ------------------------------------------------------------
-# 14. Export treatment-performance dataset
-# ------------------------------------------------------------
+  ) +
+  scale_fill_manual(values = c('#377EB8','#4DAF4A','#984EA3','#FF7F00','#FFFF33'))
 
 write.csv(
   huc12_perf,
   "../data/tidy/huc12_treatment_performance.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  performance_summary,
+  "../data/tidy/treatment_performance.csv",
+  row.names = FALSE
+)
+performance_summary
+```
+
+
+```{r structural_economic, dependson="planning_clusters"}
+
+# ============================================================
+# STRUCTURAL AND ECONOMIC CONTEXT
+# ============================================================
+#
+# These variables are intentionally evaluated after the
+# environmental/implementation classification. They are not
+# used to define the planning classes.
+# ============================================================
+
+huc12_context <- huc12_planning %>%
+  mutate(
+    unstable_share_treated =
+      if_else(sumOPha > 0, sum_UNSTha / area_ha, NA_real_),
+
+    unprofitable_share_treated =
+      if_else(sumOPha > 0, sum_UNPha / area_ha, NA_real_),
+
+    opportunity_cost_per_prairie_ha =
+      if_else(sumprairie > 0, sumOC / sumprairie, NA_real_)
+  )
+
+context_summary <- huc12_context %>%
+  group_by(Planning_Class) %>%
+  summarise(
+    n = n(),
+
+    mean_unstable_share_treated =
+      mean(unstable_share_treated, na.rm = TRUE),
+
+    median_unstable_share_treated =
+      median(unstable_share_treated, na.rm = TRUE),
+
+    mean_unprofitable_share_treated =
+      mean(unprofitable_share_treated, na.rm = TRUE),
+
+    median_unprofitable_share_treated =
+      median(unprofitable_share_treated, na.rm = TRUE),
+
+    mean_opportunity_cost_per_prairie_ha =
+      mean(opportunity_cost_per_prairie_ha, na.rm = TRUE),
+
+    median_opportunity_cost_per_prairie_ha =
+      median(opportunity_cost_per_prairie_ha, na.rm = TRUE),
+
+    .groups = "drop"
+  )
+
+print(context_summary)
+
+write.csv(
+  huc12_context,
+  "../data/tidy/huc12_planning_context.csv",
   row.names = FALSE
 )
 

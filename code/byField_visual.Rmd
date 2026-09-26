@@ -178,7 +178,11 @@ envOutcome_CostSum <- practSumBIO %>%
             
             .groups = "drop")
 
-write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
+## Count of fields that have more than one vegetative practice sited.
+numPract <- envOutcome_CostSum %>%
+  filter(n >1)
+
+#write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
 
 envOutcome_FBsummary <- envOutcome_CostSum %>%
   group_by(FBndID) %>%

@@ -114,7 +114,7 @@ mhProfit
 
 ```{r mean_data, dependson = "create_soilpad"}
 profit_yield <- full_join(AvgProfit, AvgYield)
-profit_yield$HUC12 <- profit_yield$HUC12.x
+#profit_yield$HUC12 <- profit_yield$HUC12.x
 profit_yield2 <- merge(profit_yield, HUC12, by="HUC12")
 
 pyMLRA <- profit_yield %>%

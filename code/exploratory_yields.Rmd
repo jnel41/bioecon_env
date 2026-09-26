@@ -42,9 +42,10 @@ AvgYield <- read_csv("../data/raw/AvgYield012345678912.csv") %>%
          avgCorn_buha = AvgYield_Corn*0.405, ## convert bu per acre to kg per ha
          stdCorn_buha = StdYield_Corn*0.405, ## convert bu per acre to kg per ha
          cvCorn_per = Yield_CV_Corn*100,
-         stabCorn = case_when(cvCorn_per < 5 ~ "Stable High",
-                              cvCorn_per < 10 ~ "Stable Low",
-                              cvCorn_per <= 50  ~ "Unstable"),
+         stabCorn = case_when(cvCorn_per < 5 ~ "Stable",
+                              cvCorn_per < 10 ~ "Stable",
+                              cvCorn_per < 30 ~ "Stable Low",
+                              cvCorn_per > 30  ~ "Unstable"),
          yieldCornClass = case_when(avgCorn_buha < 81.4 | CountyName == "Cedar" ~ "Low", # Cedar County 2015-2024 average = 201.4 bu per ac
                                     avgCorn_buha > 81.4 | CountyName == "Cedar" ~ "High",
                                     avgCorn_buha < 82.1 | CountyName == "Clint" ~ "Low", # Clinton County 2015-2024 average = 202.7 bu per ac
