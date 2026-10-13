@@ -1,0 +1,1611 @@
+---
+title: "Supplyshed Scenario Exploration"
+author: "J. Stephenson"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup_HUC12}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = TRUE)#,
+                      #fig.width = 12,
+                      #fig.height = 12)
+
+library("tidyverse"); theme_set(theme_bw())
+
+library("factoextra")
+library("cluster")
+library("ggrepel")
+library("fmsb")
+library("stringr")
+library("ggplot2")
+
+options(scipen = 999, width = 200)
+
+dir.create("fig", showWarnings = FALSE)
+```
+
+```{r}
+sessionInfo()
+```
+
+Look at bioyield and transportation costs
+```{r ws_data, cache.extra=tools::md5sum("../data/raw/HUC12_list.csv")}
+
+wsArea <- read_csv("../data/raw/HUC12_list.csv") %>%
+  mutate(area_ha = areaacres *0.404686,
+         HUC12 = str_pad(huc12, width = 12, pad = "0"),
+         NO3_loadkg = SUM_wsNO3load_lbs*0.45359,
+         sed_loadkg = SUM_Mean_sed_tons*0.907185) %>%
+  select(area_ha, HUC12,NO3_loadkg,sed_loadkg)
+
+```
+## Read in data
+
+```{r, child="create_datasets.Rmd"}
+```
+
+
+```{r envOutcomes, dependson="create_df"}
+
+## How much is it going to cost to realize the INRS? How much to achieve wildlife goals?
+envOutcome_CostSum <- practSumBIO %>%
+  group_by(FBndID) %>%
+  summarize(n       = n(),
+            MLRA = max(MLRA),
+            HUC12 = max(HUC12),
+            radial = max(radial),
+            IWAP = list(unique(IWAP)),
+            practice = list(unique(practice)),
+            
+            ## Cost summary per field
+            opArea_ha = sum(opArea_ha),
+            sumDC = sum(DirectCost),
+            sumOC = sum(adjOCost),
+            sumTC = sum(TotalCost),
+            sumDCcp = sum(DirectCost_CP),
+            sumTCcp = sum(TotalCost_CP),
+            
+            ## Bio yield summary
+            sum_BioMg = sum(bioYield_Mg),
+            DC_BioMg = sum_BioMg / sumDC,
+            DCcp_BioMg = sum_BioMg / sumDCcp,
+            TC_BioMg = sum_BioMg / sumTC,
+            TCcp_BioMg = sum_BioMg / sumTCcp,
+            #BioMg_med = median(bioYield_Mg, na.rm = TRUE),
+            #Q1_BioMg = quantile(bioYield_Mg, probs = c(0.25)),
+            #Q3_BioMg = quantile(bioYield_Mg, probs = c(0.75)),
+            #BioTC_Mg_med = median(TC_MgBio, na.rm = TRUE),
+            #Q1TC_MgBio = quantile(TC_MgBio, probs = c(0.25)),
+            #Q3TC_MgBio = quantile(TC_MgBio, probs = c(0.75)),
+            #BioTCcp_Mg_med = median(TCcp_MgBio, na.rm = TRUE),
+            #Q1TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.25)),
+            #Q3TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.75)),
+            
+            ## Energy potential summary
+            sumEnergyPot = sum(energyPot),
+            DC_MMBtu = sumDC / sumEnergyPot,
+            DCcp_MMBtu = sumDCcp / sumEnergyPot,
+            TC_MMBtu = sumTC / sumEnergyPot,
+            TCcp_MMBtu = sumTCcp / sumEnergyPot,
+            #engPot_med = median(energyPot, na.rm = TRUE),
+            #Q1_engPot = quantile(energyPot, probs = c(0.25)),
+            #Q3_engPot = quantile(energyPot, probs = c(0.75)),
+            #engPotTC_med = median(TC_enPot, na.rm = TRUE),
+            #Q1TC_enPot = quantile(TC_enPot, probs = c(0.25)),
+            #Q3TC_enPot = quantile(TC_enPot, probs = c(0.75)),
+            #engPotTCcp_med = median(TCcp_enPot, na.rm = TRUE),
+            #Q1TCcp_enPot = quantile(TCcp_enPot, probs = c(0.25)),
+            #Q3TCcp_enPot = quantile(TCcp_enPot, probs = c(0.75)),
+            
+            ## Wildlife Summary
+            sum_patch_ha = sum(patch_ha),
+            sum_lin_ha = sum(lin_ha),
+            sum_wh_ha = sum(lin_ha) + sum(patch_ha),
+            sum_rye_ha = sum(rye_ha),
+            DC_pha = sumDC / sum(patch_ha),
+            DC_lha = sumDC / sum(lin_ha),
+            DC_wha = sumDC / sum(lin_ha) + sum(patch_ha),
+            DCcp_pha = sumDCcp / sum(patch_ha),
+            DCcp_lha = sumDCcp / sum(lin_ha),
+            DCcp_wha = sumDCcp / sum(lin_ha) + sum(patch_ha),
+            TC_pha = sumTC / sum(patch_ha),
+            TC_lha = sumTC / sum(lin_ha),
+            TC_wha = sumTC / sum(lin_ha) + sum(patch_ha),
+            TCcp_pha = sumTCcp / sum(patch_ha),
+            TCcp_lha = sumTCcp / sum(lin_ha),
+            TCcp_wha = sumTCcp / sum(lin_ha) + sum(patch_ha),
+            #BioMg_med = median(bioYield_Mg, na.rm = TRUE),
+            #Q1_BioMg = quantile(bioYield_Mg, probs = c(0.25)),
+            #Q3_BioMg = quantile(bioYield_Mg, probs = c(0.75)),
+            #WHTC_ha_med = median(TC_haWH, na.rm = TRUE),
+            #Q1TC_MgBio = quantile(TC_MgBio, probs = c(0.25)),
+            #Q3TC_MgBio = quantile(TC_MgBio, probs = c(0.75)),
+            #WHTCcp_ha_med = median(TCcp_haWH, na.rm = TRUE),
+            #Q1TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.25)),
+            #Q3TCcp_MgBio = quantile(TCcp_MgBio, probs = c(0.75)),
+            
+            ## CO2 summary
+            sumCO2 = sum(CO2red),
+            DC_CO2 = sumDC / sumCO2,
+            DCcp_CO2 = sumDCcp / sumCO2,
+            TC_CO2 = sumTC / sumCO2,
+            TCcp_CO2 = sumTCcp / sumCO2,
+            #CO2red_med = median(CO2red, na.rm = TRUE),
+            #Q1_CO2red = quantile(CO2red, probs = c(0.25)),
+            #Q3_CO2red = quantile(CO2red, probs = c(0.75)),
+            #CO2TC_Mg_med = median(TC_MgCO2, na.rm=TRUE),
+            #Q1_CO2TC_Mg = quantile(TC_MgCO2, probs = c(0.25)),
+            #Q3_CO2TC_Mg = quantile(TC_MgCO2, probs = c(0.75)),
+            #CO2TCcp_Mg_med = median(TCcp_MgCO2, na.rm=TRUE),
+            #Q1_CO2TCcp_Mg = quantile(TCcp_MgCO2, probs = c(0.25)),
+            #Q3_CO2TCcp_Mg = quantile(TCcp_MgCO2, probs = c(0.75)),
+            
+            ## N2O summary
+            sumN2Ored = sum(N2Ored),
+            DC_N2Ored = sumDC / sumN2Ored,
+            DCcp_N2Ored = sumDCcp / sumN2Ored,
+            TC_N2Ored = sumTC / sumN2Ored,
+            TCcp_N2Ored = sumTCcp / sumN2Ored,
+            #N2Ored_med = median(N2Ored, na.rm=TRUE),
+            #Q1_N2Ored = quantile(N2Ored, probs = c(0.25)),
+            #Q3_N2Ored = quantile(N2Ored, probs = c(0.75)),
+            #N2OTC_Mg_med = median(TC_MgN2O, na.rm=TRUE),
+            #Q1_N2OTC_Mg = quantile(TC_MgN2O, probs = c(0.25)),
+            #Q3_N2OTC_Mg = quantile(TC_MgN2O, probs = c(0.75)),
+            #N2OTCcp_Mg_med = median(TCcp_MgN2O, na.rm=TRUE),
+            #Q1_N2OTCcp_Mg = quantile(TCcp_MgN2O, probs = c(0.25)),
+            #Q3_N2OTCcp_Mg = quantile(TCcp_MgN2O, probs = c(0.75)),
+            
+            # NO3 load summary
+            sumNO3red = sum(cpNO3ldRedkg, na.rm = TRUE),
+            DC_NO3red = sumDC / sumNO3red,
+            DCcp_NO3red = sumDCcp / sumNO3red,
+            TC_NO3red = sumTC / sumNO3red,
+            TCcp_NO3red = sumTCcp / sumNO3red,
+            #NO3red_med = median(cpNO3ldRedkg, na.rm = TRUE),
+            #Q1_NO3red = quantile(cpNO3ldRedkg, probs = c(0.25), na.rm = TRUE),
+            #Q3_NO3red = quantile(cpNO3ldRedkg, probs = c(0.75), na.rm = TRUE),
+            #NO3TC_kg_med = median(TC_kgNO3, na.rm = TRUE),
+            #Q1_NO3TC_kg = quantile(TC_kgNO3, probs = c(0.25), na.rm = TRUE),
+            #Q3_NO3TC_kg = quantile(TC_kgNO3, probs = c(0.75), na.rm = TRUE),
+            #NO3TCcp_kg_med = median(TCcp_kgNO3, na.rm = TRUE),
+            #Q1_NO3TCcp_kg = quantile(TCcp_kgNO3, probs = c(0.25), na.rm = TRUE),
+            #Q3_NO3TCcp_kg = quantile(TCcp_kgNO3, probs = c(0.75), na.rm = TRUE),
+            
+            ## Sediment load summary
+            sumSEDred = sum(cpSEDldRedkg, na.rm = TRUE),
+            DC_SEDred = sumDC / sumSEDred,
+            DCcp_SEDred = sumDCcp / sumSEDred,
+            TC_SEDred = sumTC / sumSEDred,
+            TCcp_SEDred = sumTCcp / sumSEDred,
+            #SEDred_med = median(cpSEDldRedkg, na.rm = TRUE),
+            #Q1_SEDred = quantile(cpSEDldRedkg, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDred = quantile(cpSEDldRedkg, probs = c(0.75), na.rm = TRUE),
+            #SEDTC_kg_med = median(TC_kgSED, na.rm = TRUE),
+            #Q1_SEDTC_kg = quantile(TC_kgSED, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDTC_kg = quantile(TC_kgSED, probs = c(0.75), na.rm = TRUE),
+            #SEDTCcp_kg_med = median(TCcp_kgSED, na.rm = TRUE),
+            #Q1_SEDTCcp_kg = quantile(TCcp_kgSED, probs = c(0.25), na.rm = TRUE),
+            #Q3_SEDTCcp_kg = quantile(TCcp_kgSED, probs = c(0.75), na.rm = TRUE),
+            )
+
+#write_csv(envOutcome_CostSum,"envOutcome_byField.csv")
+```
+
+```{r travelOutcomes, dependson="envOutcome"}
+
+travel_envOutcomes <- full_join(envOutcome_CostSum, fbSieversRoute)
+profit_trvl_env <- full_join(AvgProfit, travel_envOutcomes) %>%
+  drop_na(n)
+
+travel_HUC12Sum <- travel_envOutcomes %>%
+  #group_by(radial) %>%
+  group_by(FBndID,HUC12) %>%
+  drop_na(Total_Kilometers) %>%
+  summarize(AOI = "supplyshed",
+            opArea = sum(opArea_ha),
+            n       = n(),
+            ## Bio yield summary
+            BioMg = sum(sum_BioMg),
+            
+            ## Energy potential summary
+            EnergyPot = sum(sumEnergyPot),
+
+            ## Cost summary per field
+            DC = sum(sumDC),
+            OC = sum(sumOC),
+            TC = sum(sumTC),
+            DCcp = sum(sumDCcp),
+            TCcp = sum(sumTCcp),
+            
+            ## Wildlife habitat summary
+            patch = sum(sum_patch_ha),
+            lin = sum(sum_lin_ha),
+            prairie = sum(sum_wh_ha),
+            rye = sum(sum_rye_ha),
+
+            ## CO2 summary
+            CO2 = sum(sumCO2),
+            
+            ## N2O summary
+            N2Ored = sum(sumN2Ored),
+
+            # NO3 load summary
+            NO3red = sum(sumNO3red, na.rm = TRUE),
+
+            ## Sediment load summary
+            SEDred = sum(sumSEDred, na.rm = TRUE),
+            
+            Ctruck = sum_BioMg*(2*Total_Kilometers)*0.265, # $ per field. trucking cost. 2026 ISU Custom Rate survey. Transportation coefficient = "haul round bales by truck or trailer per bale per mile", assuming 0.68 Mg of hay in a bale (Hart etal. 2015).
+            Ctruck_Mg = (2*Total_Kilometers)*0.265,
+            Chand = sum_BioMg*4.7794, # $ per field. 2026 ISU Custom Rate survey. Loading/unloading = "moving large round bales to storage per bale", assuming 0.68 Mg of hay in a bale. Coefficients are assumed to be fixed cost. 
+            Ctotal = Ctruck + Chand, # trucking + handling costs per field.
+            rnd_dist = 2*Total_Kilometers,
+            Ctotal_Mg = (Ctruck + Chand) / sum_BioMg, # transportation cost per Mg of biomass harvested from a field
+            Ctotal_Mg_km = Ctotal / sum_BioMg / rnd_dist,
+            Cdeliv = Ctotal + sumDC, # cost per field for biomass
+            Cdeliv_Mg = Cdeliv / sum_BioMg, # production + transportation cost per Mg delivered from a field
+            Cdeliv_Mg_km = Cdeliv / sum_BioMg / rnd_dist,
+            Ccpdeliv = Ctotal + sumDCcp, # cost per field for biomass and structural components
+            Ccpdeliv_Mg = Ccpdeliv / sum_BioMg,
+            Ccpdeliv_Mg_km = Ccpdeliv / sum_BioMg / rnd_dist
+            )
+```
+
+```{r HUC12data, dependson="envOutcome"}
+## need to run both exploratory_yields and exploratory_profits to get the profit_yield dataframe.
+profitHUC12 <- profit_yield %>% 
+  filter(unprofit == "unprofitable") %>%
+  group_by(HUC12) %>%
+  summarize(sum_UNPha = sum(subArea_ha)) %>%
+  drop_na()
+
+ysHUC12 <- profit_yield %>%
+  #filter(stabCorn == "Unstable") %>%
+  filter(stabCorn != "Stable Low") %>%
+  group_by(HUC12) %>%
+  summarize(sum_UNSTha = sum(subArea_ha)) #%>%
+  #drop_na()
+
+
+```
+
+```{r HUC12_travel, dependson="HUC12data"}
+Ctravel_HUC12 <- travel_HUC12Sum %>%
+  #group_by(radial) %>%
+  group_by(HUC12) %>%
+  summarize(sumOPha = sum(opArea),
+            sumBioMg = sum(BioMg),
+            
+            ## Energy potential summary
+            sumEnergyPot = sum(EnergyPot),
+            sumDC = sum(DC),
+            sumOC = sum(OC),
+            sumTC = sum(TC),
+            sumDCcp = sum(DCcp),
+            sumTCcp = sum(TCcp),
+            
+            ## Wildlife habitat summary
+            sumpatch = sum(patch),
+            sumlin = sum(lin),
+            sumprairie = sum(prairie),
+            sumrye = sum(rye),
+            
+            ## CO2 summary
+            sumCO2 = sum(CO2),
+            
+            ## N2O summary
+            sumN2Ored = sum(N2Ored),
+
+            # NO3 load summary
+            sumNO3red = sum(NO3red, na.rm = TRUE),
+
+            ## Sediment load summary
+            sumSEDred = sum(SEDred, na.rm = TRUE),
+            
+            mean_dist = mean(rnd_dist, na.rm = TRUE),
+            #sd_dist = sd(rnd_dist),
+            #med_dist = median(rnd_dist, na.rm = TRUE),
+            #Q1_dist = quantile(rnd_dist, probs = c(0.25), na.rm = TRUE),
+            #Q3_dist = quantile(rnd_dist, probs = c(0.75), na.rm = TRUE),
+            
+            mean_Ctruck = mean(Ctruck, na.rm = TRUE),
+            sum_Ctruck = sum(Ctruck),
+            mean_Ctruck = mean(Ctruck_Mg, na.rm=TRUE),
+            #sd_Ctruck = sd(Ctruck),
+            #med_Ctruck = median(Ctruck_Mg, na.rm = TRUE),
+            #Q1_Ctruck = quantile(Ctruck_Mg, probs = c(0.25), na.rm = TRUE),
+            #Q3_Ctruck = quantile(Ctruck_Mg, probs = c(0.75), na.rm = TRUE),
+            
+            mean_Chand = mean(Chand, na.rm = TRUE),
+            sum_Chand = sum(Chand, na.rm = TRUE),
+            #sd_Chand = sd(Chand),
+            #med_Chand = median(Chand, na.rm = TRUE),
+            #Q1_Chand = quantile(Chand, probs = c(0.25), na.rm = TRUE),
+            #Q3_Chand = quantile(Chand, probs = c(0.75), na.rm = TRUE),
+            
+            mean_Ctotal = mean(Ctotal, na.rm = TRUE),
+            sum_Ctotal = sum(Ctotal, na.rm = TRUE),
+            #sd_Ctotal = sd(Ctotal, na.rm = TRUE),
+            #med_Ctotal = median(Ctotal, na.rm = TRUE),
+            #Q1_Ctotal = quantile(Ctotal, probs = c(0.25), na.rm = TRUE),
+            #Q3_Ctotal = quantile(Ctotal, probs = c(0.75), na.rm = TRUE),
+           
+            mean_Ctotal_Mg = mean(Ctotal_Mg, na.rm = TRUE),
+            #sd_Ctotal_Mg = sd(Ctotal_Mg),
+            #med_Ctotal_Mg = median(Ctotal_Mg, na.rm = TRUE),
+            #Q1_Ctotal_Mg = quantile(Ctotal_Mg, probs = c(0.25), na.rm = TRUE),
+            #Q3_Ctotal_Mg = quantile(Ctotal_Mg, probs = c(0.75), na.rm = TRUE),
+            
+            mean_Cdeliv = mean(Cdeliv, na.rm = TRUE),
+            sum_Cdeliv = sum(Cdeliv, na.rm = TRUE),
+            #sd_Cdeliv = sd(Cdeliv),
+            #med_Cdeliv = median(Cdeliv, na.rm = TRUE),
+            #Q1_Cdeliv = quantile(Cdeliv, probs = c(0.25), na.rm = TRUE),
+            #Q3_Cdeliv = quantile(Cdeliv, probs = c(0.75), na.rm = TRUE),
+            mean_Cdeliv_Mg = mean(Cdeliv_Mg, na.rm = TRUE),
+            #sd_Cdeliv_Mg =sd(Cdeliv_Mg),
+            #med_Cdeliv_Mg = median(Cdeliv_Mg, na.rm = TRUE),
+            #Q1_Cdeliv_Mg = quantile(Cdeliv_Mg, probs = c(0.25), na.rm = TRUE),
+            #Q3_Cdeliv_Mg = quantile(Cdeliv_Mg, probs = c(0.75), na.rm = TRUE)
+  )
+
+#write_csv(Ctravel_radial,"travelcosts_byRad.csv")
+
+```
+
+```{r HUC12_summary, dependson="HUC12_travel"}
+huc12_summary <- full_join(Ctravel_HUC12, wsArea)
+
+huc12_summary <- wsArea %>%
+  full_join(Ctravel_HUC12) %>%
+  full_join(ysHUC12) %>%
+  full_join(profitHUC12) %>%
+  drop_na(HUC12,sumOPha) %>%
+  replace_na(list(sum_UNSTha = 0)) ## 7 HUC12 watersheds had 0 subfields designated as unstable
+
+
+huc12_df <- huc12_summary %>%
+  mutate(
+    # ----------------------------------------------------------
+    # Landscape-scale metrics
+    #
+    # The denominator is the portion of each HUC12 within the
+    # 32-km supplyshed (`area_ha`), so all outcomes and treatment
+    # areas are expressed relative to the same spatial extent.
+    # ----------------------------------------------------------
+    per_treated = sumOPha / area_ha,
+    per_patch = sumpatch / area_ha,
+    per_lin = sumlin / area_ha,
+    per_prairie = sumprairie / area_ha,
+    per_rye = sumrye / area_ha,
+
+    bio_Mg_ha = sumBioMg / area_ha,
+    dccp_ha = sumDCcp / area_ha,
+    tccp_ha = sumTCcp / area_ha,
+
+    ghg_ha = (sumCO2 + sumN2Ored) / area_ha,
+    no3_ha = sumNO3red / area_ha,
+    sed_ha = sumSEDred / area_ha,
+    no3_red = sumNO3red/NO3_loadkg,
+    sed_red = sumSEDred/sed_loadkg,
+    
+    
+    stabLow_ha = sum_UNSTha / area_ha,
+    unprofit_ha = sum_UNPha / area_ha,
+    oc_ha = sumOC / area_ha,
+
+    # ----------------------------------------------------------
+    # Treatment-level performance metrics
+    #
+    # These are calculated per hectare treated and are kept
+    # separate from the landscape-scale classification.
+    # ----------------------------------------------------------
+    no3_per_treated_ha = sumNO3red / sumOPha,
+    sed_per_treated_ha = sumSEDred / sumOPha,
+    ghg_per_treated_ha = (sumCO2 + sumN2Ored) / sumOPha,
+    bio_per_treated_ha = sumBioMg / sumOPha,
+    oc_per_treated_ha = sumOC / sumOPha,
+    dccp_per_treated_ha = sumDCcp / sumOPha,
+    tccp_per_treated_ha = sumTCcp / sumOPha,
+
+    # Treatment composition, not efficiency
+    prairie_share_treated = sumprairie / sumOPha,
+    rye_share_treated = sumrye / sumOPha
+  ) %>%
+  filter(sumOPha > 0)
+
+```
+
+```{r multivariate, dependson="HUC12_summary"}
+# ============================================================
+# MULTIVARIATE HUC12 PLANNING CLASSIFICATION
+# ============================================================
+#
+# The classification identifies recurring combinations of:
+#   * conservation/practice configuration,
+#   * landscape-scale environmental outcomes,
+#   * biomass production, and
+#   * treatment extent.
+#
+# The resulting classes are interpreted as watershed planning
+# archetypes within the study landscape. They are not rankings
+# and should not be interpreted as universally optimal
+# configurations.
+#
+# PRIMARY ANALYSIS
+# ----------------
+# K-means clustering is performed on standardized ORIGINAL
+# variables.
+#
+# PCA is used as a diagnostic to:
+#   1. describe multivariate structure,
+#   2. quantify variance explained,
+#   3. visualize variable relationships, and
+#   4. provide a sensitivity analysis using PCA scores.
+#
+# OPPORTUNITY COST
+# ----------------
+# Opportunity cost is NOT used to define the clusters because
+# it is strongly coupled to land-use transformation and prairie
+# extent. It is calculated separately and used to characterize
+# the economic implementation context of each planning class.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# 0. Prepare HUC12 dataset
+# ------------------------------------------------------------
+
+huc12_planning <- huc12_df
+
+
+# ------------------------------------------------------------
+# 1. Define PRIMARY classification variables
+# ------------------------------------------------------------
+#
+# These variables represent distinct planning dimensions:
+#
+#   per_treated = extent of landscape transformation
+#   per_patch   = prairie patch configuration
+#   per_lin     = linear habitat configuration
+#   per_rye     = cereal rye configuration
+#   no3_ha      = landscape-scale nitrate reduction
+#   sed_ha      = landscape-scale sediment reduction
+#   ghg_ha      = landscape-scale GHG reduction
+#   bio_Mg_ha   = landscape-scale biomass production
+#
+# Direct cost is retained as an implementation requirement.
+#
+# Opportunity cost is intentionally excluded from clustering.
+#
+# IMPORTANT:
+# If you decide that direct cost should NOT define the
+# archetypes, remove dccp_ha from this vector and from the
+# sensitivity analysis below.
+# ------------------------------------------------------------
+
+primary_vars <- c(
+  "per_treated",
+  "per_patch",
+  "per_lin",
+  "per_rye",
+  "no3_ha",
+  "sed_ha",
+  "ghg_ha",
+  "bio_Mg_ha",
+  "dccp_ha"
+)
+
+cluster_vars <- huc12_planning %>%
+  select(all_of(primary_vars))
+
+# ------------------------------------------------------------
+# 2. Retain complete HUC12s
+# ------------------------------------------------------------
+
+complete_idx <- complete.cases(cluster_vars)
+
+huc12_cluster <- huc12_planning[complete_idx, ]
+
+cluster_complete <- cluster_vars[complete_idx, ]
+
+
+# Report sample size explicitly
+cat("\nNumber of HUC12s available for classification:",
+    nrow(cluster_complete), "\n")
+
+cat("Number excluded because of incomplete classification data:",
+    sum(!complete_idx), "\n")
+
+# ------------------------------------------------------------
+# 3. Standardize variables
+# ------------------------------------------------------------
+#
+# All variables are standardized to mean = 0 and SD = 1.
+# This prevents variables with larger numerical units from
+# dominating Euclidean distance.
+# ------------------------------------------------------------
+
+cluster_scaled <- scale(cluster_complete)
+
+cluster_scaled_df <- as.data.frame(cluster_scaled)
+
+
+```
+
+```{r pca, dependson="multivariate"}
+# ============================================================
+# PCA DIAGNOSTICS
+# ============================================================
+
+# ------------------------------------------------------------
+# 4. Correlation matrix
+# ------------------------------------------------------------
+#
+# This is descriptive. It is included to document covariance
+# among classification variables, not to claim that the
+# variables are statistically independent.
+# ------------------------------------------------------------
+
+cluster_cor <- cor(
+  cluster_complete,
+  use = "pairwise.complete.obs"
+)
+
+print(round(cluster_cor, 3))
+
+write.csv(
+  round(cluster_cor, 3),
+  "../data/tidy/archetype_correlation_matrix.csv"
+)
+
+write.csv(huc12_planning,"../data/tidy/huc12_clusters.csv"
+)
+
+# ------------------------------------------------------------
+# 5. PCA
+# ------------------------------------------------------------
+#
+# PCA is performed on the standardized original variables.
+#
+# PCA is NOT the primary clustering space.
+# It is used to:
+#   - describe multivariate structure,
+#   - quantify variance explained,
+#   - examine variable contributions,
+#   - visualize HUC12 relationships.
+# ------------------------------------------------------------
+
+pca_model <- prcomp(
+  cluster_scaled,
+  center = FALSE,
+  scale. = FALSE
+)
+
+pca_summary <- summary(pca_model)
+
+print(pca_summary)
+
+
+# ------------------------------------------------------------
+# 6. PCA variance explained
+# ------------------------------------------------------------
+
+pca_variance <- tibble(
+  PC = paste0("PC", seq_along(pca_model$sdev)),
+  eigenvalue = pca_model$sdev^2,
+  variance_percent =
+    100 * (pca_model$sdev^2 / sum(pca_model$sdev^2)),
+  cumulative_percent =
+    100 * cumsum(pca_model$sdev^2) /
+    sum(pca_model$sdev^2)
+)
+
+print(pca_variance)
+
+write.csv(
+  pca_variance,
+  "../data/tidy/pca_variance_explained.csv",
+  row.names = FALSE
+)
+
+
+# ------------------------------------------------------------
+# 7. PCA loadings
+# ------------------------------------------------------------
+
+pca_loadings <- as.data.frame(
+  pca_model$rotation
+)
+
+pca_loadings$Variable <- rownames(pca_loadings)
+
+pca_loadings <- pca_loadings %>%
+  relocate(Variable)
+
+print(pca_loadings)
+
+write.csv(
+  pca_loadings,
+  "../data/tidy/pca_loadings.csv",
+  row.names = FALSE
+)
+
+
+# ------------------------------------------------------------
+# 8. PCA diagnostic plots
+# ------------------------------------------------------------
+
+fviz_eig(
+  pca_model,
+  addlabels = TRUE
+)
+
+fviz_pca_var(
+  pca_model,
+  col.var = "contrib",
+  repel = TRUE
+)
+
+```
+
+```{r cluster_analysis, dependson="pca"}
+# ============================================================
+# NUMBER OF CLUSTERS
+# ============================================================
+
+# ------------------------------------------------------------
+# 9. Evaluate candidate numbers of classes
+# ------------------------------------------------------------
+#
+# We evaluate k = 2 through 6.
+#
+# WSS is an elbow diagnostic.
+# Silhouette width evaluates within/between-cluster separation.
+#
+# Neither metric is used mechanically to select k.
+# Cluster size and substantive interpretability are also
+# considered.
+# ------------------------------------------------------------
+
+set.seed(123)
+
+k_values <- 2:6
+
+wss_results <- map_dfr(
+  k_values,
+  function(k) {
+
+    km <- kmeans(
+      cluster_scaled,
+      centers = k,
+      nstart = 100
+    )
+
+    tibble(
+      k = k,
+      tot_withinss = km$tot.withinss
+    )
+  }
+)
+
+print(wss_results)
+
+
+# WSS plot
+
+ggplot(
+  wss_results,
+  aes(x = k, y = tot_withinss)
+) +
+  geom_line() +
+  geom_point(size = 3) +
+  scale_x_continuous(breaks = k_values) +
+  theme_minimal() +
+  labs(
+    x = "Number of planning classes (k)",
+    y = "Total within-cluster sum of squares"
+  )
+
+# ------------------------------------------------------------
+# 10. Silhouette diagnostics
+# ------------------------------------------------------------
+
+distance_matrix <- dist(cluster_scaled)
+
+silhouette_results <- map_dfr(
+  k_values,
+  function(k) {
+
+    set.seed(123)
+
+    km <- kmeans(
+      cluster_scaled,
+      centers = k,
+      nstart = 100
+    )
+
+    sil <- silhouette(
+      km$cluster,
+      distance_matrix
+    )
+
+    tibble(
+      k = k,
+      mean_silhouette =
+        mean(sil[, "sil_width"]),
+      median_silhouette =
+        median(sil[, "sil_width"]),
+      min_silhouette =
+        min(sil[, "sil_width"]),
+      n_negative =
+        sum(sil[, "sil_width"] < 0)
+    )
+  }
+)
+
+print(silhouette_results)
+
+write.csv(
+  silhouette_results,
+  "../data/tidy/silhouette_diagnostics.csv",
+  row.names = FALSE
+)
+
+
+ggplot(
+  silhouette_results,
+  aes(x = k, y = mean_silhouette)
+) +
+  geom_line() +
+  geom_point(size = 3) +
+  scale_x_continuous(breaks = k_values) +
+  theme_minimal() +
+  labs(
+    x = "Number of planning classes (k)",
+    y = "Mean silhouette width"
+  )
+
+
+```
+
+```{r planning_clusters, dependson="cluster_analysis"}
+# ============================================================
+# PRIMARY FIVE-CLASS SOLUTION
+# ============================================================
+
+# ------------------------------------------------------------
+# 11. Fit primary k-means solution
+# ------------------------------------------------------------
+#
+# Five classes are retained for the primary analysis because
+# the five-class solution provides an additional meaningful
+# distinction in practice configuration while maintaining
+# comparable silhouette performance to the four-class solution.
+#
+# IMPORTANT:
+# This is a substantive/model-selection decision, not a claim
+# that five is universally optimal.
+# ------------------------------------------------------------
+
+k_primary <- 5
+
+set.seed(123)
+
+km_model <- kmeans(
+  cluster_scaled,
+  centers = k_primary,
+  nstart = 100
+)
+
+
+# ------------------------------------------------------------
+# 12. Add cluster assignment
+# ------------------------------------------------------------
+
+huc12_cluster <- huc12_cluster %>%
+  mutate(
+    cluster = factor(km_model$cluster)
+  )
+
+
+# ------------------------------------------------------------
+# 13. Cluster sizes
+# ------------------------------------------------------------
+
+cluster_sizes <- huc12_cluster %>%
+  count(cluster, name = "n") %>%
+  mutate(
+    percent = 100 * n / sum(n)
+  )
+
+print(cluster_sizes)
+
+write.csv(
+  cluster_sizes,
+  "../data/tidy/archetype_cluster_sizes.csv",
+  row.names = FALSE
+)
+
+
+# ------------------------------------------------------------
+# 14. Primary clustering diagnostics
+# ------------------------------------------------------------
+
+primary_silhouette <- silhouette(
+  km_model$cluster,
+  distance_matrix
+)
+
+primary_silhouette_summary <- tibble(
+  k = k_primary,
+  mean_silhouette =
+    mean(primary_silhouette[, "sil_width"]),
+  median_silhouette =
+    median(primary_silhouette[, "sil_width"]),
+  min_silhouette =
+    min(primary_silhouette[, "sil_width"]),
+  n_negative =
+    sum(primary_silhouette[, "sil_width"] < 0)
+)
+
+print(primary_silhouette_summary)
+
+write.csv(
+  primary_silhouette_summary,
+  "../data/tidy/primary_silhouette_summary.csv",
+  row.names = FALSE
+)
+
+
+# Silhouette plot for the five-class solution
+
+fviz_silhouette(
+  primary_silhouette
+)
+
+silhouette_cases <- as.data.frame(primary_silhouette) %>%
+  mutate(
+    HUC12 = huc12_cluster$HUC12
+  ) %>%
+  select(
+    HUC12,
+    assigned_cluster = cluster,
+    nearest_cluster = neighbor,
+    silhouette_width = sil_width
+  ) %>%
+  arrange(silhouette_width)
+
+print(silhouette_cases)
+
+silhouette_cases %>%
+  filter(silhouette_width < 0)
+
+
+negative_silhouette_HUC12s <- silhouette_cases %>%
+  filter(silhouette_width < 0) %>%
+  pull(HUC12)
+
+huc12_cluster %>%
+  filter(HUC12 %in% negative_silhouette_HUC12s) %>%
+  select(
+    HUC12,
+    cluster,
+    per_treated,
+    per_patch,
+    per_lin,
+    per_rye,
+    no3_ha,
+    sed_ha,
+    ghg_ha,
+    bio_Mg_ha,
+    dccp_ha,
+    oc_ha
+  )
+```
+
+```{r cluster_sens_analysis, dependson="cluster_analysis"}
+# ============================================================
+# CLUSTER STABILITY SENSITIVITY ANALYSIS
+# ============================================================
+
+# ------------------------------------------------------------
+# 15. Repeated k-means stability analysis
+# ------------------------------------------------------------
+#
+# K-means solutions can depend on starting values.
+#
+# We therefore repeat the five-class solution using many
+# different random seeds and compare the resulting assignments
+# to the primary solution using the Adjusted Rand Index (ARI).
+#
+# ARI:
+#   1.0 = identical partition
+#   ~0   = agreement approximately expected by chance
+#
+# This evaluates stability of the PARTITION, not statistical
+# significance of individual variables.
+# ------------------------------------------------------------
+
+# Requires mclust
+# install.packages("mclust") if necessary
+
+library(mclust)
+
+set.seed(123)
+
+n_stability_runs <- 500
+
+stability_results <- map_dfr(
+  seq_len(n_stability_runs),
+  function(i) {
+
+    seed_i <- 1000 + i
+
+    set.seed(seed_i)
+
+    km_i <- kmeans(
+      cluster_scaled,
+      centers = k_primary,
+      nstart = 25
+    )
+
+    ari_i <- adjustedRandIndex(
+      km_model$cluster,
+      km_i$cluster
+    )
+
+    tibble(
+      run = i,
+      seed = seed_i,
+      ARI = ari_i
+    )
+  }
+)
+
+print(
+  stability_results %>%
+    summarise(
+      mean_ARI = mean(ARI),
+      median_ARI = median(ARI),
+      min_ARI = min(ARI),
+      max_ARI = max(ARI),
+      sd_ARI = sd(ARI)
+    )
+)
+
+write.csv(
+  stability_results,
+  "../data/tidy/archetype_stability_results.csv",
+  row.names = FALSE
+)
+
+
+# Stability distribution
+
+ggplot(
+  stability_results,
+  aes(x = ARI)
+) +
+  geom_histogram(bins = 30) +
+  geom_vline(
+    xintercept = 0.8,
+    linetype = "dashed"
+  ) +
+  theme_minimal() +
+  labs(
+    x = "Adjusted Rand Index relative to primary solution",
+    y = "Number of repeated k-means runs"
+  )
+
+# ============================================================
+# SENSITIVITY TO NUMBER OF CLASSES
+# ============================================================
+
+# ------------------------------------------------------------
+# 16. Compare cluster stability across k
+# ------------------------------------------------------------
+#
+# This asks whether the selected number of classes is
+# particularly unstable relative to nearby alternatives.
+# ------------------------------------------------------------
+
+set.seed(123)
+
+k_stability <- 2:6
+
+k_stability_results <- map_dfr(
+  k_stability,
+  function(k) {
+
+    # Reference solution
+    set.seed(123)
+
+    reference <- kmeans(
+      cluster_scaled,
+      centers = k,
+      nstart = 100
+    )
+
+    # Repeated solutions
+    ari_values <- map_dbl(
+      1:100,
+      function(i) {
+
+        set.seed(5000 + i)
+
+        repeat_model <- kmeans(
+          cluster_scaled,
+          centers = k,
+          nstart = 25
+        )
+
+        adjustedRandIndex(
+          reference$cluster,
+          repeat_model$cluster
+        )
+      }
+    )
+
+    tibble(
+      k = k,
+      mean_ARI = mean(ari_values),
+      median_ARI = median(ari_values),
+      min_ARI = min(ari_values),
+      max_ARI = max(ari_values),
+      sd_ARI = sd(ari_values)
+    )
+  }
+)
+
+print(k_stability_results)
+
+write.csv(
+  k_stability_results,
+  "../data/tidy/k_stability_results.csv",
+  row.names = FALSE
+)
+
+
+# ============================================================
+# VARIABLE-SET SENSITIVITY ANALYSIS
+# ============================================================
+
+# ------------------------------------------------------------
+# 17. Define alternative classification variable sets
+# ------------------------------------------------------------
+#
+# The primary model contains strongly correlated variables.
+# This is not necessarily inappropriate because the variables
+# represent different planning dimensions, but it is important
+# to determine whether the five-class solution depends heavily
+# on particular variables.
+#
+# Sensitivity sets:
+#
+# A = Primary model
+#
+# B = Remove landscape transformation extent
+#     (per_treated)
+#
+# C = Remove highly correlated transformation/biomass variables
+#     (per_treated + bio_Mg_ha)
+#
+# D = Remove direct cost
+#
+# E = Practice/outcome configuration without direct cost and
+#     biomass
+#
+# These are sensitivity analyses, not alternative "correct"
+# models.
+# ------------------------------------------------------------
+
+variable_sets <- list(
+
+  Primary = c(
+    "per_treated",
+    "per_patch",
+    "per_lin",
+    "per_rye",
+    "no3_ha",
+    "sed_ha",
+    "ghg_ha",
+    "bio_Mg_ha",
+    "dccp_ha"
+  ),
+
+  No_Treatment_Extent = c(
+    "per_patch",
+    "per_lin",
+    "per_rye",
+    "no3_ha",
+    "sed_ha",
+    "ghg_ha",
+    "bio_Mg_ha",
+    "dccp_ha"
+  ),
+
+  No_Treatment_Extent_or_Biomass = c(
+    "per_patch",
+    "per_lin",
+    "per_rye",
+    "no3_ha",
+    "sed_ha",
+    "ghg_ha",
+    "dccp_ha"
+  ),
+
+  No_Direct_Cost = c(
+    "per_treated",
+    "per_patch",
+    "per_lin",
+    "per_rye",
+    "no3_ha",
+    "sed_ha",
+    "ghg_ha",
+    "bio_Mg_ha"
+  ),
+
+  Configuration_and_Outcome = c(
+    "per_patch",
+    "per_lin",
+    "per_rye",
+    "no3_ha",
+    "sed_ha",
+    "ghg_ha"
+  )
+)
+
+
+# ------------------------------------------------------------
+# 18. Run sensitivity models
+# ------------------------------------------------------------
+
+sensitivity_models <- list()
+
+sensitivity_summary <- map_dfr(
+  names(variable_sets),
+  function(model_name) {
+
+    vars <- variable_sets[[model_name]]
+
+    dat <- huc12_planning %>%
+      select(all_of(vars)) %>%
+      filter(complete.cases(.))
+
+    scaled_dat <- scale(dat)
+
+    set.seed(123)
+
+    km <- kmeans(
+      scaled_dat,
+      centers = k_primary,
+      nstart = 100
+    )
+
+    sil <- silhouette(
+      km$cluster,
+      dist(scaled_dat)
+    )
+
+    # Store model for later comparison
+    sensitivity_models[[model_name]] <<- list(
+      variables = vars,
+      data = dat,
+      scaled = scaled_dat,
+      model = km
+    )
+
+    tibble(
+      variable_set = model_name,
+      n_variables = length(vars),
+      n_HUC12 = nrow(dat),
+      mean_silhouette =
+        mean(sil[, "sil_width"]),
+      median_silhouette =
+        median(sil[, "sil_width"]),
+      min_silhouette =
+        min(sil[, "sil_width"]),
+      n_negative =
+        sum(sil[, "sil_width"] < 0)
+    )
+  }
+)
+
+print(sensitivity_summary)
+
+write.csv(
+  sensitivity_summary,
+  "../data/tidy/archetype_variable_sensitivity.csv",
+  row.names = FALSE
+)
+
+```
+
+```{r arsi, dependson="planning_clusters"}
+# ============================================================
+# 19. Compare alternative variable sets with PRIMARY solution
+# ============================================================
+
+variable_set_ARI <- map_dfr(
+  names(sensitivity_models),
+  function(model_name) {
+
+    vars <- sensitivity_models[[model_name]]$variables
+
+    # HUC12s with complete data for this variable set
+    sensitivity_data <- huc12_planning %>%
+      select(HUC12, all_of(vars)) %>%
+      filter(complete.cases(.)) %>%
+      arrange(HUC12)
+
+    # Primary classifications for exactly the same HUC12s
+    primary_data <- huc12_cluster %>%
+      select(HUC12, primary_cluster = cluster) %>%
+      filter(HUC12 %in% sensitivity_data$HUC12) %>%
+      arrange(HUC12)
+
+    # Refit sensitivity model using exactly these HUC12s
+    x <- sensitivity_data %>%
+      select(all_of(vars))
+
+    x_scaled <- scale(x)
+
+    set.seed(123)
+
+    km_sens <- kmeans(
+      x_scaled,
+      centers = k_primary,
+      nstart = 100
+    )
+
+    tibble(
+      variable_set = model_name,
+      n_HUC12_compared = nrow(sensitivity_data),
+      ARI_vs_primary =
+        adjustedRandIndex(
+          primary_data$primary_cluster,
+          km_sens$cluster
+        )
+    )
+  }
+)
+
+print(variable_set_ARI)
+
+write.csv(
+  variable_set_ARI,
+  "../data/tidy/archetype_variable_set_ARI.csv",
+  row.names = FALSE
+)
+```
+
+```{r pca_sens_analysis, dependson="planning_clusters"}
+# ============================================================
+# PCA-SCORE SENSITIVITY ANALYSIS
+# ============================================================
+
+# ------------------------------------------------------------
+# 20. Cluster on PCA scores as a sensitivity analysis
+# ------------------------------------------------------------
+#
+# This directly addresses an important methodological question:
+#
+# Does the classification change substantially if highly
+# correlated original variables are first reduced to a smaller
+# number of principal components?
+#
+# The PRIMARY classification remains based on the standardized
+# original variables.
+# ------------------------------------------------------------
+
+# Determine number of PCs explaining at least 90% of variance
+
+n_pc_90 <- which(
+  pca_variance$cumulative_percent >= 90
+)[1]
+
+cat(
+  "\nNumber of PCs explaining >=90% of variance:",
+  n_pc_90,
+  "\n"
+)
+
+
+pca_scores_90 <- pca_model$x[, seq_len(n_pc_90), drop = FALSE]
+
+set.seed(123)
+
+km_pca <- kmeans(
+  pca_scores_90,
+  centers = k_primary,
+  nstart = 100
+)
+
+pca_silhouette <- silhouette(
+  km_pca$cluster,
+  dist(pca_scores_90)
+)
+
+pca_sensitivity_summary <- tibble(
+  model = paste0(
+    "PCA scores (",
+    n_pc_90,
+    " PCs)"
+  ),
+  n_PC = n_pc_90,
+  variance_explained =
+    pca_variance$cumulative_percent[n_pc_90],
+  mean_silhouette =
+    mean(pca_silhouette[, "sil_width"]),
+  median_silhouette =
+    median(pca_silhouette[, "sil_width"]),
+  min_silhouette =
+    min(pca_silhouette[, "sil_width"])
+)
+
+print(pca_sensitivity_summary)
+
+
+# Compare PCA solution with primary solution
+
+pca_primary_ARI <- adjustedRandIndex(
+  km_model$cluster,
+  km_pca$cluster
+)
+
+cat(
+  "\nAdjusted Rand Index: primary vs PCA-score solution =",
+  round(pca_primary_ARI, 3),
+  "\n"
+)
+
+
+write.csv(
+  pca_sensitivity_summary,
+  "../data/tidy/pca_cluster_sensitivity.csv",
+  row.names = FALSE
+)
+```
+
+```{r sens_summary, dependson="planning_clusters"}
+# ============================================================
+# 21. Overall sensitivity summary
+# ============================================================
+
+overall_sensitivity <- bind_rows(
+
+  sensitivity_summary %>%
+    mutate(
+      analysis_type = "Variable set"
+    ) %>%
+    select(
+      analysis_type,
+      model = variable_set,
+      n_variables,
+      n_HUC12,
+      mean_silhouette,
+      median_silhouette,
+      min_silhouette,
+      n_negative
+    ),
+
+  pca_sensitivity_summary %>%
+    mutate(
+      analysis_type = "PCA score sensitivity",
+      n_variables = n_PC,
+      n_HUC12 = nrow(pca_scores_90),
+      n_negative =
+        sum(pca_silhouette[, "sil_width"] < 0)
+    ) %>%
+    select(
+      analysis_type,
+      model,
+      n_variables,
+      n_HUC12,
+      mean_silhouette,
+      median_silhouette,
+      min_silhouette,
+      n_negative
+    )
+)
+
+print(overall_sensitivity)
+
+write.csv(
+  overall_sensitivity,
+  "../data/tidy/archetype_overall_sensitivity.csv",
+  row.names = FALSE
+)
+
+
+# ============================================================
+# 22. Visualize primary planning classes
+# ============================================================
+
+huc12_planning <- huc12_cluster %>%
+  mutate(
+    Planning_Class =
+      paste0("Planning class ", cluster)
+  )
+
+
+# ------------------------------------------------------------
+# Join classifications back to complete HUC12 dataset
+# ------------------------------------------------------------
+
+huc12_planning <- huc12_df %>%
+  left_join(
+    huc12_planning %>%
+      select(
+        HUC12,
+        cluster,
+        Planning_Class
+      ),
+    by = "HUC12"
+  )
+
+
+# ------------------------------------------------------------
+# Cluster visualization
+# ------------------------------------------------------------
+
+fviz_cluster(
+  km_model,
+  data = cluster_scaled,
+  geom = "point",
+  ellipse.type = "convex",
+  ggtheme = theme_minimal()
+)
+
+```
+
+
+```{r treatment_performance, dependson="planning_clusters"}
+# ============================================================
+# TREATMENT-PERFORMANCE ANALYSIS
+# ============================================================
+#
+# These metrics answer a different question from the landscape
+# classification: how do outcomes and implementation intensity
+# compare per hectare actually treated?
+# ============================================================
+
+# ============================================================
+# 23. Summarize PRIMARY planning classes
+# ============================================================
+
+cluster_summary <- huc12_planning %>%
+  filter(!is.na(cluster)) %>%
+  group_by(cluster) %>%
+  summarise(
+
+    n = n(),
+
+    # Landscape transformation
+    mean_per_treated =
+      mean(per_treated, na.rm = TRUE),
+
+    # Practice configuration
+    mean_per_patch =
+      mean(per_patch, na.rm = TRUE),
+
+    mean_per_lin =
+      mean(per_lin, na.rm = TRUE),
+
+    mean_per_rye =
+      mean(per_rye, na.rm = TRUE),
+
+    # Landscape-scale outcomes
+    mean_no3_ha =
+      mean(no3_ha, na.rm = TRUE),
+
+    mean_sed_ha =
+      mean(sed_ha, na.rm = TRUE),
+
+    mean_ghg_ha =
+      mean(ghg_ha, na.rm = TRUE),
+
+    mean_bio_Mg_ha =
+      mean(bio_Mg_ha, na.rm = TRUE),
+
+    # Direct implementation cost
+    mean_dccp_ha =
+      mean(dccp_ha, na.rm = TRUE),
+
+    # Opportunity cost -- CHARACTERIZATION ONLY
+    mean_oc_ha =
+      mean(oc_ha, na.rm = TRUE),
+
+    # Total cost -- CHARACTERIZATION ONLY
+    mean_tccp_ha =
+      mean(tccp_ha, na.rm = TRUE),
+
+    # Treatment-level outcomes
+    no3_treated = mean(no3_per_treated_ha, na.rm = TRUE),
+    sed_treated = mean(sed_per_treated_ha, na.rm = TRUE),
+    ghg_treated = mean(ghg_per_treated_ha, na.rm = TRUE),
+    bio_treated = mean(bio_per_treated_ha, na.rm = TRUE),
+    per_treated =  mean(per_treated, na.rm = TRUE),
+    rye_treated =  mean(rye_share_treated, na.rm = TRUE),
+    prairie_treated = mean(prairie_share_treated, na.rm = TRUE),
+    dccp_treated = mean(dccp_per_treated_ha, na.rm = TRUE),
+    oc_treated = mean(oc_per_treated_ha, na.rm = TRUE),
+    tccp_treated = mean(tccp_per_treated_ha, na.rm = TRUE),
+    
+    
+
+    .groups = "drop"
+  )
+
+print(cluster_summary)
+
+write.csv(
+  cluster_summary,
+  "../data/tidy/cluster_summary.csv",
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------
+# 10. Treatment-performance distributions
+# ------------------------------------------------------------
+facet2_labels <- c(
+  bio_per_treated_ha   = "atop(Biomass~Yield,(Mg~ha^{-1}))",
+  no3_per_treated_ha      = "atop(NO[3]~Load~Red.,(Mg~ha^{-1}))",
+  dccp_per_treated_ha     = "atop(Direct~Cost,(USD~ha^{-1}))",
+  oc_per_treated_ha = "atop(Opportunity~Cost,(USD~ha^{-1}))",
+  tccp_per_treated_ha = "atop(Total~Cost,(USD~ha^{-1}))",
+  sed_per_treated_ha      = "atop(Sed.~Load~Red.,(Mg~ha^{-1}))",
+  ghg_per_treated_ha      = "atop(GHG~Red.,(Mg~CO[2]*e~ha^{-1}))",
+  per_treated = "Treated~('%')",
+  prairie_share_treated   = "Prairie~('%')",
+  rye_share_treated     = "Cereal~Rye~('%')"
+)
+huc12_planning %>%
+  pivot_longer(
+    cols = c(
+      no3_per_treated_ha,
+      sed_per_treated_ha,
+      ghg_per_treated_ha,
+      bio_per_treated_ha,
+      dccp_per_treated_ha,
+      rye_share_treated,
+      prairie_share_treated,
+      oc_per_treated_ha,
+      
+      #unprofit_ha
+      #stabLow_ha,
+    ),
+    names_to = "Metric",
+    values_to = "Value"
+  ) %>%
+  ggplot(
+    aes(
+      x = Planning_Class,
+      y = Value,
+      fill = Planning_Class
+    )
+  ) +
+  geom_boxplot() +
+  facet_wrap(~ factor(Metric, c("no3_per_treated_ha","sed_per_treated_ha","ghg_per_treated_ha","bio_per_treated_ha","per_treated","rye_share_treated","prairie_share_treated","dccp_per_treated_ha","oc_per_treated_ha","tccp_per_treated_ha")), scales = "free_y",ncol = 2,,
+             strip.position = "left",
+             labeller = as_labeller(facet2_labels, label_parsed)) +
+  ylab(NULL) +
+  theme_minimal() +
+  theme(text = element_text(family = "serif", size = 9),
+    axis.text.x = element_blank(),
+    strip.background = element_blank(),
+    strip.placement = "outside"
+  ) +
+  scale_fill_manual(values = c('#377EB8','#4DAF4A','#984EA3','#FF7F00','#FFFF33'), 
+                    #labels = c("Nutrient-Biomass Integration", "Limited Environmental Intervention","Moderate Multifunctional Outcomes","Water-Quality-Biomass Integration","Prairie-Habitat-Nutrient Integration")
+                    )
+
+
+```

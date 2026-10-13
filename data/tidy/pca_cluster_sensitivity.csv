@@ -1,0 +1,2 @@
+"model","n_PC","variance_explained","mean_silhouette","median_silhouette","min_silhouette"
+"PCA scores (2 PCs)",2,94.8151221398709,0.502813827286587,0.50727489246636,0.0443718210610209
